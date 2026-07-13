@@ -15,3 +15,6 @@ next.user-config.*
 node_modules/
 .next/
 .DS_Store
+
+# Dados de origem (shapefile com CPF/CNPJ reais) - manter apenas local
+parcelas/

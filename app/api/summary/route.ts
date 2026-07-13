@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Pool } from "pg";
 
 const pool = new Pool({
-  host: process.env.DB_HOST || "host.docker.internal",
+  host: process.env.DB_HOST || "localhost",
   database: process.env.DB_NAME || "postgres",
   user: process.env.DB_USER || "postgres",
   password: process.env.DB_PASSWORD || "postgres",
@@ -402,15 +402,29 @@ export async function GET(request: NextRequest) {
       uf: row.uf
     }));
 
-    // Novo: Buscar pontos do mapa (centroids)
-    const mapPointsRes = await pool.query(
-      `SELECT ST_X(geom) as lng, ST_Y(geom) as lat FROM agrogrid_mapa WHERE cpf_cnpj = $1`,
+    // Buscar as geometrias das parcelas (limites/polígonos) como GeoJSON
+    const mapFeaturesRes = await pool.query(
+      `SELECT
+         id,
+         parcela_co,
+         codigo_imo,
+         car,
+         ST_AsGeoJSON(geom) as geojson,
+         ST_Y(ST_Centroid(geom)) as lat,
+         ST_X(ST_Centroid(geom)) as lng
+       FROM agrogrid_mapa
+       WHERE cpf_cnpj = $1`,
       [cpf]
     );
 
-    const map_points = mapPointsRes.rows.map(row => ({
+    const map_features = mapFeaturesRes.rows.map(row => ({
+      id: row.id,
+      parcela_co: row.parcela_co,
+      codigo_imo: row.codigo_imo,
+      car: row.car,
       lat: parseFloat(row.lat),
-      lng: parseFloat(row.lng)
+      lng: parseFloat(row.lng),
+      geometry: row.geojson ? JSON.parse(row.geojson) : null,
     }));
 
     // Novo: Análise Patrimonial (Uso do Solo - land_use_price) - Retorna Detalhes para Filtro no Front
@@ -456,7 +470,7 @@ export async function GET(request: NextRequest) {
       range_details,
       valid_details,
       non_valid_geo,
-      map_points,
+      map_features,
       land_use_details // Alterado para detalhes
     });
   } catch (error) {
