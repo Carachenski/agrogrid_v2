@@ -18,7 +18,7 @@ export function StepNav({ actions }: { actions?: ReactNode }) {
   );
 
   return (
-    <div className="border-b border-border bg-card/50">
+    <div className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-sm">
       <div className="max-w-6xl mx-auto px-6 flex items-center gap-3">
         {/* espaçador esquerdo — mantém os passos centralizados */}
         <div className="flex-1" />

@@ -1,0 +1,19 @@
+services:
+  web:
+    build: .
+    image: agrogrid-v2
+    container_name: agrogrid-v2
+    ports:
+      # Publica na rede local (0.0.0.0) — acessível pelos amigos via http://<IP-do-PC>:3001
+      # (3000 fica livre para o preview local; container escuta 3000 internamente)
+      - "3001:3000"
+    environment:
+      # Banco Postgres roda no host (fora do Docker)
+      DB_HOST: host.docker.internal
+      DB_PORT: "5433"
+      DB_NAME: postgres
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

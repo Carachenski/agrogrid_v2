@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Database, ArrowLeft, Search, Loader2, FileText, CheckCircle, MapPin, PieChart as PieChartIcon, Download, Trees, MapPinned, ScrollText, Landmark, ShieldCheck, ShieldAlert, ShieldX, ChevronDown } from "lucide-react";
+import { Database, ArrowLeft, Search, Loader2, FileText, CheckCircle, AlertCircle, MapPin, PieChart as PieChartIcon, Download, Trees, MapPinned, ScrollText, Landmark, ShieldCheck, ShieldAlert, ShieldX, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,14 +14,16 @@ import * as htmlToImage from "html-to-image";
 import { StepNav } from "@/components/step-nav";
 import { useConsulta } from "@/components/consulta-provider";
 import type { SummaryData } from "@/lib/types";
+import { type RiskLevel, getConsideredParcelas } from "@/lib/risk";
 
+// Paleta padrão MapBiomas por classe de uso do solo
 const SOIL_COLORS = {
-  irrigacao: "#3b82f6", // Azul
-  agricultura: "#10b981", // Verde
-  pastagem: "#f59e0b", // Amarelo
-  culturas_permanentes: "#f97316", // Laranja
-  reflorestamento: "#8b5cf6", // Roxo
-  mata_app_outros: "#06b6d4", // Ciano
+  irrigacao: "#2532e4", // Água (MapBiomas) — azul p/ irrigação
+  agricultura: "#E974ED", // Agricultura (MapBiomas)
+  pastagem: "#edde8e", // Pastagem (MapBiomas)
+  culturas_permanentes: "#d082de", // Lavoura Perene (MapBiomas)
+  reflorestamento: "#7a5900", // Silvicultura (MapBiomas)
+  mata_app_outros: "#1f8d49", // Formação Florestal (MapBiomas)
 };
 
 // Bases fundiárias consultadas automaticamente
@@ -47,8 +49,6 @@ function formatCpfCnpj(value: string) {
     .replace(/(\d{3})(\d)/, "$1/$2")
     .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
 }
-
-type RiskLevel = "baixo" | "medio" | "alto";
 
 const RISK_LEVELS: {
   id: RiskLevel;
@@ -85,21 +85,6 @@ const RISK_LEVELS: {
   },
 ];
 
-// Conjunto de parcelas (parcela_co) consideradas conforme o nível de risco.
-// Progressivo: baixo ⊆ médio ⊆ alto.
-function getConsideredParcelas(data: SummaryData, risk: RiskLevel): Set<string> {
-  const set = new Set<string>();
-  if (risk === "baixo") {
-    data.valid_details.filter(d => d.atencao === "OK").forEach(d => set.add(d.parcela_co));
-  } else if (risk === "medio") {
-    data.valid_details.forEach(d => set.add(d.parcela_co));
-  } else {
-    data.valid_details.forEach(d => set.add(d.parcela_co));
-    data.non_valid_geo.forEach(d => set.add(d.parcela_co));
-  }
-  return set;
-}
-
 // Contagem de parcelas por nível (para exibir nos botões)
 function countByRisk(data: SummaryData, risk: RiskLevel): number {
   return getConsideredParcelas(data, risk).size;
@@ -107,9 +92,8 @@ function countByRisk(data: SummaryData, risk: RiskLevel): number {
 
 export default function SummaryPage() {
   // Estado da consulta vem do context (persiste entre as telas)
-  const { cpf, setCpf, data, loading, error, fetchSummary } = useConsulta();
+  const { cpf, setCpf, data, loading, error, riskLevel, setRiskLevel, fetchSummary } = useConsulta();
   const [exporting, setExporting] = useState(false);
-  const [riskLevel, setRiskLevel] = useState<RiskLevel>("alto");
   const [showAderencia, setShowAderencia] = useState(false);
   const [showCorrespondencia, setShowCorrespondencia] = useState(false);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -243,7 +227,7 @@ export default function SummaryPage() {
     e?.preventDefault();
     if (!cpf.trim()) return;
     // Reseta o estado de visualização da tela e dispara a consulta no context
-    setRiskLevel("alto");
+    // (o riskLevel é resetado para "alto" dentro do fetchSummary do context)
     setShowAderencia(false);
     setShowCorrespondencia(false);
     fetchSummary(cpf);
@@ -760,9 +744,7 @@ export default function SummaryPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-primary-foreground font-bold">
-                        P
-                      </div>
+                      <AlertCircle className="h-5 w-5 text-primary" />
                       Correspondências Potenciais
                     </CardTitle>
                     <CardDescription className="text-muted-foreground mt-1.5">
@@ -847,19 +829,18 @@ export default function SummaryPage() {
               )}
             </Card>
 
+            {/* Nível de Risco + Análise Patrimonial agrupados (espaçamento menor p/ caberem juntos) */}
+            <div className="space-y-6">
             {/* Filtro de Nível de Risco */}
             <Card>
-              <CardHeader className="text-center">
-                <CardTitle className="flex items-center justify-center gap-2">
+              <CardHeader className="py-4 text-center">
+                <CardTitle className="flex items-center justify-center gap-2 text-lg font-bold">
                   <ShieldCheck className="h-5 w-5 text-primary" />
-                  Nível de Risco
+                  Nível de Risco Fundiário
                 </CardTitle>
-                <CardDescription>
-                  Selecione o nível para recalcular a Análise Patrimonial e as parcelas exibidas no mapa.
-                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid gap-3 sm:grid-cols-3">
+              <CardContent className="pb-4">
+                <div className="grid gap-2.5 sm:grid-cols-3">
                   {RISK_LEVELS.map((r) => {
                     const Icon = r.icon;
                     const isActive = riskLevel === r.id;
@@ -871,23 +852,19 @@ export default function SummaryPage() {
                         onClick={() => setRiskLevel(r.id)}
                         aria-pressed={isActive}
                         className={cn(
-                          "flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-colors",
+                          "flex items-center gap-3 rounded-xl border px-5 py-4 text-left transition-colors",
                           isActive
                             ? r.active
                             : "border-border bg-background/40 hover:border-foreground/20 hover:bg-secondary/40"
                         )}
                       >
-                        <Icon className={cn("h-7 w-7", isActive ? r.iconColor : "text-muted-foreground")} />
-                        <span className="text-sm font-semibold text-foreground">{r.label}</span>
-                        <span className="text-[11px] leading-tight text-muted-foreground">{r.desc}</span>
-                        <span
-                          className={cn(
-                            "mt-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                            isActive ? "bg-background/60 text-foreground" : "bg-secondary text-muted-foreground"
-                          )}
-                        >
-                          {count} parcela{count !== 1 ? "s" : ""}
-                        </span>
+                        <Icon className={cn("h-7 w-7 shrink-0", isActive ? r.iconColor : "text-muted-foreground")} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-base font-semibold text-foreground">{r.label}</div>
+                          <div className="text-xs leading-tight text-muted-foreground">
+                            {count} parcela{count !== 1 ? "s" : ""}
+                          </div>
+                        </div>
                       </button>
                     );
                   })}
@@ -898,27 +875,24 @@ export default function SummaryPage() {
             {/* Patrimonial Analysis Section */}
             {landUseSummary.total > 0 && (
               <Card className="border-primary/20 bg-gradient-to-b from-primary/5 to-transparent overflow-hidden">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-xl font-bold">
-                    <PieChartIcon className="h-6 w-6 text-primary" />
+                <CardHeader className="py-4">
+                  <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                    <PieChartIcon className="h-5 w-5 text-primary" />
                     Análise Patrimonial
                   </CardTitle>
-                  <CardDescription className="mt-1.5">
-                    Distribuição do uso do solo e valor estimado das propriedades selecionadas.
-                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-10">
-                  <div className="grid lg:grid-cols-2 gap-8 items-center">
+                <CardContent className="space-y-6 pb-5">
+                  <div className="grid lg:grid-cols-2 gap-6 items-center">
                     {/* Donut com total no centro */}
-                    <div className="relative h-[300px] w-full">
+                    <div className="relative h-[210px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={soilItems}
                             cx="50%"
                             cy="50%"
-                            innerRadius={72}
-                            outerRadius={100}
+                            innerRadius={52}
+                            outerRadius={76}
                             paddingAngle={3}
                             dataKey="value"
                             stroke="none"
@@ -935,17 +909,17 @@ export default function SummaryPage() {
                       </ResponsiveContainer>
                       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</span>
-                        <span className="font-mono text-2xl font-bold text-foreground">{formatArea(landUseSummary.total)}</span>
+                        <span className="font-mono text-xl font-bold text-foreground">{formatArea(landUseSummary.total)}</span>
                         <span className="text-[10px] text-muted-foreground">hectares</span>
                       </div>
                     </div>
 
                     {/* Detalhamento com barras de proporção */}
                     <div>
-                      <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                      <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                         Detalhamento de Uso
                       </h4>
-                      <div className="space-y-3.5">
+                      <div className="space-y-2">
                         {soilSorted.map((item) => {
                           const pct = (item.value / (landUseSummary.total || 1)) * 100;
                           return (
@@ -971,26 +945,26 @@ export default function SummaryPage() {
                   </div>
 
                   {/* Valor Patrimonial Estimado */}
-                  <div className="border-t border-primary/10 pt-8">
-                    <p className="mb-5 text-center text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                  <div className="border-t border-primary/10 pt-5">
+                    <p className="mb-3 text-center text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                       Valor Patrimonial Total Estimado
                     </p>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="rounded-xl border border-border bg-background/50 p-6 text-center">
-                        <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Mínimo</p>
-                        <p className="font-mono text-3xl font-black text-foreground md:text-4xl">
+                      <div className="rounded-xl border border-border bg-background/50 p-4 text-center">
+                        <p className="mb-1.5 text-xs uppercase tracking-wider text-muted-foreground">Mínimo</p>
+                        <p className="font-mono text-2xl font-black text-foreground md:text-3xl">
                           {formatCurrency(landUseSummary.total_minimo)}
                         </p>
-                        <p className="mt-3 inline-block rounded-full bg-secondary px-3 py-1 font-mono text-xs text-muted-foreground">
+                        <p className="mt-2 inline-block rounded-full bg-secondary px-3 py-0.5 font-mono text-xs text-muted-foreground">
                           {formatCurrency(landUseSummary.total_minimo / (landUseSummary.total || 1))}/ha
                         </p>
                       </div>
-                      <div className="rounded-xl border border-border bg-background/50 p-6 text-center">
-                        <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Máximo</p>
-                        <p className="font-mono text-3xl font-black text-foreground md:text-4xl">
+                      <div className="rounded-xl border border-border bg-background/50 p-4 text-center">
+                        <p className="mb-1.5 text-xs uppercase tracking-wider text-muted-foreground">Máximo</p>
+                        <p className="font-mono text-2xl font-black text-foreground md:text-3xl">
                           {formatCurrency(landUseSummary.total_maximo)}
                         </p>
-                        <p className="mt-3 inline-block rounded-full bg-secondary px-3 py-1 font-mono text-xs text-muted-foreground">
+                        <p className="mt-2 inline-block rounded-full bg-secondary px-3 py-0.5 font-mono text-xs text-muted-foreground">
                           {formatCurrency(landUseSummary.total_maximo / (landUseSummary.total || 1))}/ha
                         </p>
                       </div>
@@ -999,6 +973,7 @@ export default function SummaryPage() {
                 </CardContent>
               </Card>
             )}
+            </div>
 
             <div className="text-center export-hide-on-pdf">
               <Button

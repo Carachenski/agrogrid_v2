@@ -1,9 +1,7 @@
-import Link from "next/link";
-import { Construction, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Construction } from "lucide-react";
 import { StepNav } from "@/components/step-nav";
 import { STEPS } from "@/components/steps";
-import { ActiveConsulta } from "@/components/active-consulta";
+import { ConsultaHeader } from "@/components/consulta-header";
 
 interface UnderConstructionProps {
   href: string;
@@ -14,44 +12,25 @@ interface UnderConstructionProps {
 export function UnderConstruction({ href }: UnderConstructionProps) {
   const idx = Math.max(0, STEPS.findIndex((s) => s.href === href));
   const step = STEPS[idx];
-  const prev = idx > 0 ? STEPS[idx - 1] : null;
-  const next = idx < STEPS.length - 1 ? STEPS[idx + 1] : null;
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
       {/* Navegação sequencial */}
       <StepNav />
 
-      {/* Corpo "em construção" */}
-      <section className="flex-1 flex flex-col items-center justify-center px-6 py-24">
-        <ActiveConsulta />
-        <div className="max-w-md text-center">
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10">
-            <Construction className="h-10 w-10 text-primary" />
+      <section className="mx-auto w-full max-w-6xl px-6 py-10">
+        {/* Cabeçalho padrão (nome + nível de risco / parcelas / hectares) */}
+        <ConsultaHeader title={step.label} />
+
+        {/* Placeholder "em construção" */}
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-20 text-center">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+            <Construction className="h-8 w-8 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold text-foreground mb-3">{step.label}</h2>
-          <p className="text-muted-foreground mb-8">
-            Esta etapa está <strong className="text-foreground">em construção</strong>. Em breve
-            traremos a análise completa aqui.
+          <p className="text-lg font-medium text-foreground">Esta etapa está em construção</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Em breve traremos a análise completa de {step.label.toLowerCase()} aqui.
           </p>
-          <div className="flex items-center justify-center gap-3">
-            {prev && (
-              <Link href={prev.href}>
-                <Button variant="outline" className="gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  {prev.label}
-                </Button>
-              </Link>
-            )}
-            {next && (
-              <Link href={next.href}>
-                <Button variant="ghost" className="gap-2 text-muted-foreground">
-                  {next.label}
-                  <ArrowLeft className="h-4 w-4 rotate-180" />
-                </Button>
-              </Link>
-            )}
-          </div>
         </div>
       </section>
     </main>
