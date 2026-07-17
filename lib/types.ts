@@ -66,6 +66,7 @@ export interface SummaryData {
     id: number;
     parcela_co: string;
     codigo_imo: string;
+    matricula: string | null;
     car: string;
     lat: number;
     lng: number;

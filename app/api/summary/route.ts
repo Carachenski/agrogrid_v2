@@ -402,18 +402,27 @@ export async function GET(request: NextRequest) {
       uf: row.uf
     }));
 
-    // Buscar as geometrias das parcelas (limites/polígonos) como GeoJSON
+    // Buscar as geometrias das parcelas (limites/polígonos) como GeoJSON.
+    // A matrícula (registro_m) vem do SIGEF, unido por parcela_co.
     const mapFeaturesRes = await pool.query(
       `SELECT
-         id,
-         parcela_co,
-         codigo_imo,
-         car,
-         ST_AsGeoJSON(geom) as geojson,
-         ST_Y(ST_Centroid(geom)) as lat,
-         ST_X(ST_Centroid(geom)) as lng
-       FROM agrogrid_mapa
-       WHERE cpf_cnpj = $1`,
+         m.id,
+         m.parcela_co,
+         m.codigo_imo,
+         m.car,
+         s.registro_m AS matricula,
+         ST_AsGeoJSON(m.geom) as geojson,
+         ST_Y(ST_Centroid(m.geom)) as lat,
+         ST_X(ST_Centroid(m.geom)) as lng
+       FROM agrogrid_mapa m
+       LEFT JOIN LATERAL (
+         SELECT sp.registro_m
+         FROM sigef_prop sp
+         WHERE sp.parcela_co::text = m.parcela_co::text
+           AND sp.registro_m IS NOT NULL AND sp.registro_m <> ''
+         LIMIT 1
+       ) s ON true
+       WHERE m.cpf_cnpj = $1`,
       [cpf]
     );
 
@@ -421,6 +430,7 @@ export async function GET(request: NextRequest) {
       id: row.id,
       parcela_co: row.parcela_co,
       codigo_imo: row.codigo_imo,
+      matricula: row.matricula ?? null,
       car: row.car,
       lat: parseFloat(row.lat),
       lng: parseFloat(row.lng),

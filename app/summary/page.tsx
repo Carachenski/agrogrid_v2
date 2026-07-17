@@ -184,6 +184,7 @@ export default function SummaryPage() {
             properties: {
               parcela_co: f.parcela_co,
               codigo_imo: f.codigo_imo,
+              matricula: f.matricula,
               car: f.car,
             },
             geometry: f.geometry,
@@ -203,7 +204,8 @@ export default function SummaryPage() {
               layer.bindPopup(
                 `<div style="font-size:12px;line-height:1.4">
                    <strong>Parcela</strong><br/>${p.parcela_co || "-"}<br/><br/>
-                   <strong>Cód. Imóvel</strong><br/>${p.codigo_imo || "-"}<br/><br/>
+                   <strong>CCIR</strong><br/>${p.codigo_imo || "-"}<br/><br/>
+                   <strong>Matrícula</strong><br/>${p.matricula || "-"}<br/><br/>
                    <strong>CAR</strong><br/>${p.car || "-"}
                  </div>`
               );
