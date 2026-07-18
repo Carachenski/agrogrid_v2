@@ -18,3 +18,6 @@ node_modules/
 
 # Dados de origem (shapefile com CPF/CNPJ reais) - manter apenas local
 parcelas/
+
+# Planilhas de origem (historico_safra tem CPF/CNPJ real) - já carregadas no banco
+*.xlsx
