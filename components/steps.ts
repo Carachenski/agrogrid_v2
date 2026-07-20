@@ -13,5 +13,5 @@ export const STEPS: Step[] = [
   { href: "/summary", label: "Resumo Patrimonial", icon: FileText },
   { href: "/socioambiental", label: "Socioambiental", icon: Leaf },
   { href: "/producao", label: "Quadro de Produção", icon: Sprout },
-  { href: "/score", label: "Score", icon: Gauge },
+  { href: "/score", label: "Score Agro", icon: Gauge },
 ];

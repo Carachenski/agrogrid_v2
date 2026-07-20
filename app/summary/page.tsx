@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Database, ArrowLeft, Search, Loader2, FileText, CheckCircle, AlertCircle, MapPin, PieChart as PieChartIcon, Download, Trees, MapPinned, ScrollText, Landmark, ShieldCheck, ShieldAlert, ShieldX, ChevronDown } from "lucide-react";
+import { Database, ArrowLeft, Search, Loader2, FileText, CheckCircle, AlertCircle, MapPin, PieChart as PieChartIcon, Download, Trees, MapPinned, ScrollText, Landmark, ShieldCheck, ShieldAlert, ShieldX, ChevronDown, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -96,9 +96,13 @@ export default function SummaryPage() {
   const [exporting, setExporting] = useState(false);
   const [showAderencia, setShowAderencia] = useState(false);
   const [showCorrespondencia, setShowCorrespondencia] = useState(false);
+  const [showMapaLista, setShowMapaLista] = useState(false);
+  const [mapaFiltro, setMapaFiltro] = useState("");
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const parcelLayersRef = useRef<Record<string, any>>({});
+  const fullBoundsRef = useRef<any>(null);
 
   useEffect(() => {
     if (data?.map_features && data.map_features.length > 0 && typeof window !== 'undefined') {
@@ -132,6 +136,7 @@ export default function SummaryPage() {
         if (mapRef.current) {
           mapRef.current.remove();
         }
+        parcelLayersRef.current = {};
 
         // Parcelas visíveis conforme o nível de risco selecionado
         const considered = getConsideredParcelas(data, riskLevel);
@@ -194,13 +199,14 @@ export default function SummaryPage() {
           { type: "FeatureCollection", features },
           {
             style: {
-              color: "#facc15",      // borda amarela (melhor contraste no satélite)
+              color: "#ef4444",      // perímetro vermelho
               weight: 2,
-              fillColor: "#facc15",
+              fillColor: "#ef4444",
               fillOpacity: 0.15,
             },
             onEachFeature: (feature: any, layer: any) => {
               const p = feature.properties || {};
+              if (p.parcela_co) parcelLayersRef.current[p.parcela_co] = layer;
               layer.bindPopup(
                 `<div style="font-size:12px;line-height:1.4">
                    <strong>Parcela</strong><br/>${p.parcela_co || "-"}<br/><br/>
@@ -216,6 +222,7 @@ export default function SummaryPage() {
         ).addTo(map);
 
         const bounds = geoLayer.getBounds();
+        fullBoundsRef.current = bounds;
         if (bounds.isValid()) {
           map.fitBounds(bounds, { padding: [30, 30] });
         }
@@ -225,6 +232,14 @@ export default function SummaryPage() {
     }
   }, [data, riskLevel]);
 
+  // Recalcula o tamanho do mapa ao expandir/recolher a lista lateral
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const t = setTimeout(() => map.invalidateSize(), 220);
+    return () => clearTimeout(t);
+  }, [showMapaLista]);
+
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!cpf.trim()) return;
@@ -232,6 +247,8 @@ export default function SummaryPage() {
     // (o riskLevel é resetado para "alto" dentro do fetchSummary do context)
     setShowAderencia(false);
     setShowCorrespondencia(false);
+    setShowMapaLista(false);
+    setMapaFiltro("");
     fetchSummary(cpf);
   };
 
@@ -269,6 +286,8 @@ export default function SummaryPage() {
         * { scrollbar-width: none !important; }
         .pdf-capture-fix .leaflet-container { width: 1100px !important; height: 400px !important; }
         .leaflet-control-layers { display: none !important; }
+        .map-side-list { display: none !important; }
+        .map-grid { display: block !important; }
       `;
       document.head.appendChild(hideScrollStyle);
 
@@ -375,6 +394,81 @@ export default function SummaryPage() {
   const ccirDetencaoArea = data?.ccir_details?.find(d => d.label === "Detenção do Titular")?.total_area ?? 0;
   const ccirMatriculaCount = data?.ccir_details?.find(d => d.label === "Matrícula")?.count ?? 0;
 
+  // Info por parcela (município/área) para a lista lateral navegável do mapa
+  const mapParcelInfo: Record<string, { municipio: string; uf: string; area: number }> = {};
+  if (data) {
+    data.valid_details.forEach((d) => {
+      mapParcelInfo[d.parcela_co] = { municipio: d.municipio || "—", uf: "", area: d.area_sigef };
+    });
+    data.non_valid_geo.forEach((d) => {
+      if (!mapParcelInfo[d.parcela_co])
+        mapParcelInfo[d.parcela_co] = { municipio: d.municipio || "—", uf: d.uf || "", area: d.area_sigef };
+    });
+  }
+  // Normaliza município (sem acento/maiúsculas) só para agrupar; rótulo prefere versão acentuada
+  const semAcento = (s: string) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const normMun = (s: string) => semAcento(s).toUpperCase().trim();
+  const temAcento = (s: string) => s !== semAcento(s);
+
+  // Parcelas do mapa agrupadas por município (ordenadas por qtd de parcelas)
+  type MapaParcela = { parcela_co: string; area: number; matricula: string | null };
+  const mapGrupos: { label: string; parcelas: MapaParcela[]; area: number }[] = data
+    ? (Object.values(
+        data.map_features
+          .filter((f) => consideredParcelas.has(f.parcela_co))
+          .reduce((acc: Record<string, any>, f) => {
+          const info = mapParcelInfo[f.parcela_co];
+          const raw = info?.municipio || "Sem município";
+          const key = normMun(raw) || "SEM MUNICIPIO";
+          if (!acc[key]) acc[key] = { label: raw, parcelas: [], area: 0 };
+          else if (temAcento(raw) && !temAcento(acc[key].label)) acc[key].label = raw;
+          acc[key].parcelas.push({ parcela_co: f.parcela_co, area: info?.area || 0, matricula: f.matricula });
+          acc[key].area += info?.area || 0;
+          return acc;
+        }, {})
+      ) as any[]).sort((a, b) => b.parcelas.length - a.parcelas.length || b.area - a.area)
+    : [];
+
+  // Filtro por matrícula na lista lateral
+  const mapaFiltroLc = mapaFiltro.trim().toLowerCase();
+  const mapGruposFiltrados = mapaFiltroLc
+    ? mapGrupos
+        .map((g) => ({
+          ...g,
+          parcelas: g.parcelas.filter((p) => (p.matricula || "").toLowerCase().includes(mapaFiltroLc)),
+        }))
+        .filter((g) => g.parcelas.length > 0)
+    : mapGrupos;
+
+  // Navegação do mapa: voar até uma parcela / conjunto de parcelas / todas
+  const flyToParcela = (parcelaCo: string) => {
+    const map = mapRef.current;
+    const layer = parcelLayersRef.current[parcelaCo];
+    if (!map || !layer) return;
+    map.flyToBounds(layer.getBounds(), { maxZoom: 15, padding: [40, 40] });
+    layer.openPopup();
+    mapContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+  const flyToParcelas = (parcelasCo: string[]) => {
+    const map = mapRef.current;
+    const L = (window as any).L;
+    if (!map || !L) return;
+    let bounds: any = null;
+    parcelasCo.forEach((pc) => {
+      const layer = parcelLayersRef.current[pc];
+      if (!layer) return;
+      bounds = bounds ? bounds.extend(layer.getBounds()) : L.latLngBounds(layer.getBounds());
+    });
+    if (bounds) map.flyToBounds(bounds, { padding: [40, 40] });
+    mapContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+  const flyToTodas = () => {
+    const map = mapRef.current;
+    if (map && fullBoundsRef.current?.isValid?.()) {
+      map.flyToBounds(fullBoundsRef.current, { padding: [30, 30] });
+    }
+  };
+
   return (
     <main className="min-h-screen bg-background">
       {/* Navegação sequencial */}
@@ -471,20 +565,102 @@ export default function SummaryPage() {
             {data.map_features && data.map_features.length > 0 && (
               <Card className="overflow-hidden">
                 <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <MapPin className="h-5 w-5 text-primary" />
-                    Localização das Propriedades
-                  </CardTitle>
-                  <CardDescription>
-                    Visualização geográfica dos limites das parcelas registradas para este CPF.
-                  </CardDescription>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <MapPin className="h-5 w-5 text-primary" />
+                        Localização das Propriedades
+                      </CardTitle>
+                      <CardDescription className="mt-1.5">
+                        Limites das parcelas registradas para este CPF.
+                      </CardDescription>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 export-hide-on-pdf"
+                      onClick={() => setShowMapaLista((v) => !v)}
+                    >
+                      <Search className="h-4 w-4" />
+                      Encontrar parcelas
+                      <ChevronDown className={cn("h-4 w-4 transition-transform", showMapaLista && "rotate-180")} />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div 
-                    ref={mapContainerRef} 
-                    className="h-[400px] w-full bg-muted relative z-0"
-                    style={{ minHeight: '400px' }}
-                  />
+                  <div className={cn("map-grid grid", showMapaLista && "lg:grid-cols-[1fr_320px]")}>
+                    <div
+                      ref={mapContainerRef}
+                      className="h-[420px] w-full bg-muted relative z-0 lg:h-[540px]"
+                      style={{ minHeight: "420px" }}
+                    />
+                    {/* Lista lateral navegável (recolhível) */}
+                    {showMapaLista && (
+                      <div className="map-side-list flex max-h-[540px] flex-col border-t border-border lg:border-l lg:border-t-0">
+                        <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                          <span className="text-sm font-medium text-foreground">
+                            {mapGrupos.reduce((n, g) => n + g.parcelas.length, 0)} parcela
+                            {mapGrupos.reduce((n, g) => n + g.parcelas.length, 0) !== 1 ? "s" : ""}
+                          </span>
+                          <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" onClick={flyToTodas}>
+                            <Maximize2 className="h-3.5 w-3.5" />
+                            Ver todas
+                          </Button>
+                        </div>
+                        <div className="border-b border-border p-2">
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input
+                              value={mapaFiltro}
+                              onChange={(e) => setMapaFiltro(e.target.value)}
+                              placeholder="Buscar matrícula..."
+                              className="h-8 pl-8 text-xs"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto">
+                          {mapGruposFiltrados.map((g) => (
+                            <div key={g.label}>
+                              <button
+                                type="button"
+                                onClick={() => flyToParcelas(g.parcelas.map((p) => p.parcela_co))}
+                                className="sticky top-0 flex w-full items-center justify-between gap-2 bg-muted/70 px-3 py-2 text-left backdrop-blur-sm transition-colors hover:bg-muted"
+                              >
+                                <span className="flex items-center gap-1.5 truncate text-xs font-semibold uppercase text-foreground">
+                                  <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+                                  {g.label.toUpperCase()}
+                                </span>
+                                <span className="shrink-0 text-[11px] text-muted-foreground">
+                                  {g.parcelas.length} · {formatArea(g.area)} ha
+                                </span>
+                              </button>
+                              {g.parcelas.map((p) => (
+                                <button
+                                  key={p.parcela_co}
+                                  type="button"
+                                  onClick={() => flyToParcela(p.parcela_co)}
+                                  className="flex w-full items-center justify-between gap-2 border-b border-border/40 px-3 py-1.5 text-left transition-colors hover:bg-primary/10"
+                                >
+                                  <span className="flex min-w-0 items-center gap-1.5">
+                                    <span className="text-[10px] uppercase text-muted-foreground">Matr.</span>
+                                    <span className="truncate font-mono text-xs text-foreground">{p.matricula || "—"}</span>
+                                  </span>
+                                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                                    {formatArea(p.area)} ha
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          ))}
+                          {mapGruposFiltrados.length === 0 && (
+                            <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                              Nenhuma matrícula encontrada.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}

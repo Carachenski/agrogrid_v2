@@ -381,7 +381,7 @@ export async function GET(request: NextRequest) {
           area_sigef,
           area_serpro,
           match_type,
-          (SELECT municipio FROM car_prop c WHERE c.cod_ibge::text = cod_ibge::text LIMIT 1) as municipio,
+          (SELECT municipio FROM car_prop c WHERE c.cod_ibge::text = potential_matches.cod_ibge::text LIMIT 1) as municipio,
           uf_id as uf
       FROM potential_matches
       WHERE match_rn = 1

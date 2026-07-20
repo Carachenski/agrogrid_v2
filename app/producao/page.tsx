@@ -189,8 +189,7 @@ export default function ProducaoPage() {
                   Fluxo de Caixa por Safra
                 </CardTitle>
                 <CardDescription>
-                  Resultado líquido estimado (margem já descontado o custo) ano a ano — base para avaliar
-                  a capacidade de pagamento.
+                  Resultado de margem líquida estimada por safra
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -307,8 +306,7 @@ export default function ProducaoPage() {
                 })}
 
                 <p className="text-xs text-muted-foreground">
-                  Resultado = área × margem líquida por hectare (coluna <strong>rentabilidade</strong>, que já
-                  desconta os custos), por cultura/região/safra.
+                  Resultado = área plantada × margem líquida por hectare
                 </p>
               </CardContent>
             </Card>

@@ -3,7 +3,7 @@
 import { StepNav } from "@/components/step-nav";
 import { ConsultaHeader } from "@/components/consulta-header";
 import { useConsulta } from "@/components/consulta-provider";
-import { type RiskLevel } from "@/lib/risk";
+import { RISK_ALERTS } from "@/lib/socioambiental";
 import { cn } from "@/lib/utils";
 import {
   Ban,
@@ -48,24 +48,6 @@ const ITEMS: Item[] = [
   { label: "Florestas Públicas A & B", icon: Trees },
   { label: "SEMA", icon: Building2 },
 ];
-
-// Alertas ilustrativos por nível de risco (representação de como vai ficar).
-// Quanto maior o risco, mais camadas acusam sobreposição.
-const RISK_ALERTS: Record<RiskLevel, Record<string, { count: number; percent: number }>> = {
-  baixo: {
-    "Faixa de Fronteira": { count: 1, percent: 100 },
-  },
-  medio: {
-    "Faixa de Fronteira": { count: 2, percent: 66 },
-    "Embargos Ibama": { count: 1, percent: 22 },
-  },
-  alto: {
-    "Faixa de Fronteira": { count: 3, percent: 48 },
-    "Embargos Ibama": { count: 2, percent: 30 },
-    "PRODES Alerta": { count: 1, percent: 14 },
-    "Auto Infração IBAMA": { count: 1, percent: 18 },
-  },
-};
 
 function StatusChip({ item, alert }: { item: Item; alert?: { count: number; percent: number } }) {
   const Icon = item.icon;
@@ -125,12 +107,6 @@ export default function SocioambientalPage() {
             <StatusChip key={item.label} item={item} alert={alerts[item.label]} />
           ))}
         </div>
-
-        <p className="mt-6 text-xs text-muted-foreground">
-          Representação ilustrativa — as porcentagens e alertas variam conforme o nível de risco
-          escolhido no Resumo Patrimonial. A integração com as bases oficiais será feita em uma
-          próxima etapa.
-        </p>
       </section>
     </main>
   );
