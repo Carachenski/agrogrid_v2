@@ -160,14 +160,14 @@ export default function ProducaoPage() {
               />
               <KpiCard
                 icon={<Coins className="h-5 w-5" />}
-                label="Resultado Total"
+                label="Rentabilidade Total"
                 value={fmtBRL(prod!.totais.resultado)}
                 sub={`Acumulado em ${n} safras (${periodo})`}
                 highlight={prod!.totais.resultado >= 0 ? "pos" : "neg"}
               />
               <KpiCard
                 icon={<TrendingUp className="h-5 w-5" />}
-                label="Resultado Médio / Safra"
+                label="Rentabilidade Média / Safra"
                 value={fmtBRL(n ? prod!.totais.resultado / n : 0)}
                 sub={`Média de ${n} safras`}
               />

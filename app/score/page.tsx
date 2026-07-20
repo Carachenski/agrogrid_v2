@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { StepNav } from "@/components/step-nav";
 import { ConsultaHeader } from "@/components/consulta-header";
 import { useConsulta } from "@/components/consulta-provider";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Gauge as GaugeIcon, FileCheck2, Sprout, Leaf } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Loader2, Gauge as GaugeIcon, FileCheck2, Sprout, Leaf, Users } from "lucide-react";
 import { calcScoreAgro, type ProducaoResumo, type Pilar } from "@/lib/score";
 import { getConsideredParcelas } from "@/lib/risk";
 
@@ -90,12 +91,30 @@ function PilarCard({
   );
 }
 
+interface Relacionado {
+  cpf_cnpj: string;
+  nome: string | null;
+  qtd_ccir: number;
+  qtd_car: number;
+}
+
+// Máscara de exibição: CPF 000.000.000-00 | CNPJ 00.000.000/0000-00
+function mascaraCpfCnpj(v: string) {
+  const d = (v || "").replace(/\D/g, "");
+  if (d.length === 11)
+    return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (d.length === 14)
+    return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  return v;
+}
+
 export default function ScorePage() {
   const { data, riskLevel } = useConsulta();
   const cpf = data?.cpf;
 
   const [prod, setProd] = useState<ProducaoResumo | null>(null);
   const [loading, setLoading] = useState(false);
+  const [relacionados, setRelacionados] = useState<Relacionado[] | null>(null);
 
   useEffect(() => {
     if (!data || !cpf) {
@@ -123,6 +142,25 @@ export default function ScorePage() {
       ativo = false;
     };
   }, [data, cpf, riskLevel]);
+
+  // CPF/CNPJ relacionados (via CCIR no SERPRO e via CAR no detentores_car).
+  // Independe do nível de risco: é uma análise de partes relacionadas do titular.
+  useEffect(() => {
+    if (!cpf) {
+      setRelacionados(null);
+      return;
+    }
+    let ativo = true;
+    fetch(`/api/relacionados?cpf=${cpf}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (ativo) setRelacionados(json.error ? [] : json.relacionados);
+      })
+      .catch(() => ativo && setRelacionados([]));
+    return () => {
+      ativo = false;
+    };
+  }, [cpf]);
 
   const score = useMemo(
     () => (data ? calcScoreAgro(data, prod, riskLevel) : null),
@@ -194,6 +232,49 @@ export default function ScorePage() {
                 <p className="pt-1 text-xs">
                   Score Agro = Documental×0,35 + Produção×0,45 + Socioambiental×0,20.
                 </p>
+              </CardContent>
+            </Card>
+
+            {/* CPF/CNPJ's relacionados */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  CPF/CNPJ&apos;s Relacionados
+                </CardTitle>
+                <CardDescription>
+                  Outros titulares que compartilham CCIR e/ou CAR
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {relacionados === null ? (
+                  <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Buscando relacionados...
+                  </div>
+                ) : relacionados.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
+                    Nenhum CPF/CNPJ relacionado encontrado.
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/30 text-xs uppercase tracking-tight">
+                        <TableHead className="text-center py-3">CPF / CNPJ</TableHead>
+                        <TableHead className="text-center py-3">Nome</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {relacionados.map((r) => (
+                        <TableRow key={r.cpf_cnpj} className="hover:bg-muted/20 transition-colors text-sm">
+                          <TableCell className="text-center py-3 font-mono">
+                            {mascaraCpfCnpj(r.cpf_cnpj)}
+                          </TableCell>
+                          <TableCell className="text-center py-3 uppercase">{r.nome || "-"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </div>
