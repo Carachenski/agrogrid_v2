@@ -6,7 +6,7 @@ import { ConsultaHeader } from "@/components/consulta-header";
 import { useConsulta } from "@/components/consulta-provider";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Gauge as GaugeIcon, FileCheck2, Sprout, Leaf, Users } from "lucide-react";
+import { Loader2, Gauge as GaugeIcon, FileCheck2, Sprout, Leaf, Users, ChevronDown } from "lucide-react";
 import { calcScoreAgro, type ProducaoResumo, type Pilar } from "@/lib/score";
 import { getConsideredParcelas } from "@/lib/risk";
 
@@ -115,6 +115,7 @@ export default function ScorePage() {
   const [prod, setProd] = useState<ProducaoResumo | null>(null);
   const [loading, setLoading] = useState(false);
   const [relacionados, setRelacionados] = useState<Relacionado[] | null>(null);
+  const [showRegra, setShowRegra] = useState(false);
 
   useEffect(() => {
     if (!data || !cpf) {
@@ -203,14 +204,33 @@ export default function ScorePage() {
               <PilarCard icon={<Leaf className="h-5 w-5" />} titulo="Socioambiental" pilar={score.socioambiental} cor="#f59e0b" />
             </div>
 
-            {/* Regra */}
+            {/* Regra (recolhida por padrão) */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <GaugeIcon className="h-5 w-5 text-primary" />
-                  Como o Score é calculado
-                </CardTitle>
+              <CardHeader
+                role="button"
+                tabIndex={0}
+                onClick={() => setShowRegra((v) => !v)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setShowRegra((v) => !v);
+                  }
+                }}
+                className="cursor-pointer select-none"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <GaugeIcon className="h-5 w-5 text-primary" />
+                    Como o Score é calculado
+                  </CardTitle>
+                  <ChevronDown
+                    className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform ${
+                      showRegra ? "rotate-180" : ""
+                    }`}
+                  />
+                </div>
               </CardHeader>
+              {showRegra && (
               <CardContent className="space-y-2 text-sm text-muted-foreground">
                 <p className="text-foreground">
                   O Score é recalculado conforme o <b>Nível de Risco Fundiário</b> escolhido no Resumo —
@@ -233,6 +253,7 @@ export default function ScorePage() {
                   Score Agro = Documental×0,35 + Produção×0,45 + Socioambiental×0,20.
                 </p>
               </CardContent>
+              )}
             </Card>
 
             {/* CPF/CNPJ's relacionados */}

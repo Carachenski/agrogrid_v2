@@ -393,6 +393,8 @@ export default function SummaryPage() {
   // Valores do CCIR reaproveitados na tabela "Distribuição Geral"
   const ccirDetencaoArea = data?.ccir_details?.find(d => d.label === "Detenção do Titular")?.total_area ?? 0;
   const ccirMatriculaCount = data?.ccir_details?.find(d => d.label === "Matrícula")?.count ?? 0;
+  // Matrículas do GEO (SIGEF): parcelas com registro_m preenchido
+  const geoMatriculaCount = data?.geo_details?.find(d => d.label === "Matrículas")?.count ?? 0;
 
   // Info por parcela (município/área) para a lista lateral navegável do mapa
   const mapParcelInfo: Record<string, { municipio: string; uf: string; area: number }> = {};
@@ -687,6 +689,7 @@ export default function SummaryPage() {
                   <TableBody>
                     {data.summary.map((row) => {
                       const isCcir = row.table === "serpro_prop";
+                      const isGeo = row.table === "sigef_prop";
                       return (
                         <TableRow key={row.table} className="hover:bg-muted/20 transition-colors">
                           <TableCell className="text-center py-4">
@@ -708,6 +711,8 @@ export default function SummaryPage() {
                           <TableCell className="text-center py-4">
                             {isCcir ? (
                               <span className="text-base font-medium">{ccirMatriculaCount}</span>
+                            ) : isGeo ? (
+                              <span className="text-base font-medium">{geoMatriculaCount}</span>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
