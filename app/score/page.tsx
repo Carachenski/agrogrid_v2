@@ -62,7 +62,7 @@ function PilarCard({
             <span className="text-primary">{icon}</span>
             <div>
               <div className="font-semibold text-foreground">{titulo}</div>
-              <div className="text-[11px] text-muted-foreground">Peso {Math.round(pilar.peso * 100)}%</div>
+              <div className="text-xs text-muted-foreground">Peso {Math.round(pilar.peso * 100)}%</div>
             </div>
           </div>
           <span className="font-mono text-2xl font-bold" style={{ color: cor }}>
@@ -84,7 +84,7 @@ function PilarCard({
         </ul>
 
         {hipotetico && (
-          <p className="mt-3 text-[10px] uppercase tracking-wider text-amber-500">Componente hipotético</p>
+          <p className="mt-3 text-xs uppercase tracking-wider text-amber-500">Componente hipotético</p>
         )}
       </CardContent>
     </Card>

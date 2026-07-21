@@ -344,7 +344,7 @@ function KpiCard({
         >
           {value}
         </span>
-        {sub && <span className="text-[11px] text-muted-foreground">{sub}</span>}
+        {sub && <span className="text-xs text-muted-foreground">{sub}</span>}
       </CardContent>
     </Card>
   );

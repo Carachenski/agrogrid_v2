@@ -632,7 +632,7 @@ export default function SummaryPage() {
                                   <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
                                   {g.label.toUpperCase()}
                                 </span>
-                                <span className="shrink-0 text-[11px] text-muted-foreground">
+                                <span className="shrink-0 text-xs text-muted-foreground">
                                   {g.parcelas.length} · {formatArea(g.area)} ha
                                 </span>
                               </button>
@@ -644,10 +644,10 @@ export default function SummaryPage() {
                                   className="flex w-full items-center justify-between gap-2 border-b border-border/40 px-3 py-1.5 text-left transition-colors hover:bg-primary/10"
                                 >
                                   <span className="flex min-w-0 items-center gap-1.5">
-                                    <span className="text-[10px] uppercase text-muted-foreground">Matr.</span>
+                                    <span className="text-xs uppercase text-muted-foreground">Matr.</span>
                                     <span className="truncate font-mono text-xs text-foreground">{p.matricula || "—"}</span>
                                   </span>
-                                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                                  <span className="shrink-0 font-mono text-xs text-muted-foreground">
                                     {formatArea(p.area)} ha
                                   </span>
                                 </button>
@@ -849,7 +849,7 @@ export default function SummaryPage() {
                 <CardContent>
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/30 text-[10px] uppercase tracking-tighter">
+                      <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
                         <TableHead className="py-2 px-2 h-9">Parcela</TableHead>
                         <TableHead className="py-2 px-2 h-9">CCIR</TableHead>
                         <TableHead className="py-2 px-2 h-9">Matrícula</TableHead>
@@ -873,7 +873,7 @@ export default function SummaryPage() {
                               <TableCell className="text-right py-3 px-2 font-mono">{formatArea(item.area_serpro)}</TableCell>
                               <TableCell className="text-right py-3 px-2 font-mono">{item.diferenca.toFixed(1)}%</TableCell>
                               <TableCell className="text-center py-3 px-2">
-                                <span className={`px-2 py-1 rounded text-[10px] font-bold ${
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${
                                   item.atencao === "OK" 
                                     ? "bg-emerald-500/20 text-emerald-600" 
                                     : "bg-destructive/20 text-destructive"
@@ -891,7 +891,7 @@ export default function SummaryPage() {
                             <TableCell className="text-right py-4 px-2 font-mono">
                               {formatArea(filteredValidDetails.reduce((acc, curr) => acc + curr.area_serpro, 0))}
                             </TableCell>
-                            <TableCell colSpan={2} className="py-4 px-2 text-center text-[10px] text-muted-foreground font-normal lowercase">
+                            <TableCell colSpan={2} className="py-4 px-2 text-center text-xs text-muted-foreground font-normal lowercase">
                               {filteredValidDetails.length} parcela(s)
                             </TableCell>
                           </TableRow>
@@ -944,7 +944,7 @@ export default function SummaryPage() {
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/30 text-[10px] uppercase tracking-tighter">
+                    <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
                       <TableHead className="py-2 px-1 h-9">Parcela</TableHead>
                       <TableHead className="py-2 px-1 h-9">CCIR (SGF)</TableHead>
                       <TableHead className="py-2 px-1 h-9">CCIR (SRP)</TableHead>
@@ -972,11 +972,11 @@ export default function SummaryPage() {
                             <TableCell className="text-center py-3 px-1">
                               {item.match_type ? (
                                 item.match_type === 'SEM VINCULO' ? (
-                                  <span className="px-2 py-1 rounded bg-red-500/20 text-red-400 font-bold text-[10px] uppercase border border-red-500/30">
+                                  <span className="px-2 py-1 rounded bg-red-500/20 text-red-400 font-bold text-xs uppercase border border-red-500/30">
                                     {item.match_type}
                                   </span>
                                 ) : (
-                                  <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-600 font-bold text-[10px] uppercase border border-emerald-500/30">
+                                  <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-600 font-bold text-xs uppercase border border-emerald-500/30">
                                     {item.match_type}
                                   </span>
                                 )
@@ -994,7 +994,7 @@ export default function SummaryPage() {
                           <TableCell className="text-right py-4 px-1 font-mono">
                             {formatArea(filteredNonValidGeo.reduce((acc, curr) => acc + curr.area_serpro, 0))} ha
                           </TableCell>
-                          <TableCell className="py-4 px-1 text-center text-[10px] text-muted-foreground font-normal lowercase">
+                          <TableCell className="py-4 px-1 text-center text-xs text-muted-foreground font-normal lowercase">
                             {filteredNonValidGeo.length} parcela(s)
                           </TableCell>
                         </TableRow>
@@ -1091,9 +1091,9 @@ export default function SummaryPage() {
                         </PieChart>
                       </ResponsiveContainer>
                       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</span>
+                        <span className="text-xs uppercase tracking-wider text-muted-foreground">Total</span>
                         <span className="font-mono text-xl font-bold text-foreground">{formatArea(landUseSummary.total)}</span>
-                        <span className="text-[10px] text-muted-foreground">hectares</span>
+                        <span className="text-xs text-muted-foreground">hectares</span>
                       </div>
                     </div>
 
@@ -1194,7 +1194,7 @@ export default function SummaryPage() {
                       <s.icon className="h-5 w-5 text-primary" />
                     </div>
                     <div className="text-sm font-semibold text-foreground">{s.label}</div>
-                    <div className="text-[11px] leading-tight text-muted-foreground">{s.desc}</div>
+                    <div className="text-xs leading-tight text-muted-foreground">{s.desc}</div>
                   </div>
                 ))}
               </div>
