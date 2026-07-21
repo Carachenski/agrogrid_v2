@@ -16,6 +16,9 @@ node_modules/
 .next/
 .DS_Store
 
+# Gerado pelo Next.js (alterna entre dev/build) - nao versionar
+next-env.d.ts
+
 # Dados de origem (shapefile com CPF/CNPJ reais) - manter apenas local
 parcelas/
 
