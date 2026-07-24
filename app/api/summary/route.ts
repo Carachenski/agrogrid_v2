@@ -18,29 +18,27 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Contagens por identificador ÚNICO (ccir/car/cib/parcela); área segue somada por linha
     const queries = [
       {
         table: "serpro_prop",
         label: "CCIR",
-        query: `SELECT
-                  COUNT(*) as count,
-                  SUM(area) as total_area
-                FROM serpro_prop WHERE cpf_cnpj = $1`,
+        query: "SELECT COUNT(DISTINCT ccir) as count, SUM(area) as total_area FROM serpro_prop WHERE cpf_cnpj = $1",
       },
       {
         table: "car_prop",
         label: "CAR",
-        query: "SELECT COUNT(*) as count, SUM(area) as total_area FROM car_prop WHERE cpf_cnpj = $1",
+        query: "SELECT COUNT(DISTINCT cod_imovel_car) as count, SUM(area) as total_area FROM car_prop WHERE cpf_cnpj = $1",
       },
       {
         table: "receita_prop",
         label: "CIB",
-        query: "SELECT COUNT(*) as count, SUM(area) as total_area FROM receita_prop WHERE cpf_cnpj = $1",
+        query: "SELECT COUNT(DISTINCT cib) as count, SUM(area) as total_area FROM receita_prop WHERE cpf_cnpj = $1",
       },
       {
         table: "sigef_prop",
-        label: "GEO",
-        query: "SELECT COUNT(*) as count, SUM(area) as total_area FROM sigef_prop WHERE cpf_cnpj = $1",
+        label: "Parcelas GEO",
+        query: "SELECT COUNT(DISTINCT parcela_co) as count, SUM(area) as total_area FROM sigef_prop WHERE cpf_cnpj = $1",
       },
     ];
 
@@ -269,7 +267,8 @@ export async function GET(request: NextRequest) {
     const validDetailsRes = await pool.query(
       `SELECT
           parcela_co,
-          ccir,
+          ccir_sigef,
+          ccir_serpro,
           cpf_cnpj,
           detentor,
           area_sigef,
@@ -280,7 +279,8 @@ export async function GET(request: NextRequest) {
               ELSE 'OK'
           END AS atencao,
           municipio,
-          matricula,
+          matricula_serpro,
+          matricula_sigef,
           percentual
       FROM (
           SELECT *,
@@ -291,12 +291,14 @@ export async function GET(request: NextRequest) {
           FROM (
               SELECT
                   s.parcela_co::text AS parcela_co,
-                  s.ccir,
+                  s.ccir AS ccir_sigef,
+                  sp.ccir AS ccir_serpro,
                   s.cpf_cnpj,
                   COALESCE(s.detentor, sp.detentor) AS detentor,
                   s.area AS area_sigef,
                   sp.area AS area_serpro,
-                  sp.matricula,
+                  sp.matricula AS matricula_serpro,
+                  s.registro_m AS matricula_sigef,
                   sp.municipio,
                   sp.percentual,
                   ROUND(
@@ -317,13 +319,15 @@ export async function GET(request: NextRequest) {
 
     const valid_details = validDetailsRes.rows.map(row => ({
       parcela_co: row.parcela_co,
-      ccir: row.ccir,
+      ccir_sigef: row.ccir_sigef,
+      ccir_serpro: row.ccir_serpro,
       area_sigef: parseFloat(row.area_sigef || "0"),
       area_serpro: parseFloat(row.area_serpro || "0"),
       diferenca: parseFloat(row.diferenca_percentual || "0"),
       atencao: row.atencao,
       municipio: row.municipio,
-      matricula: row.matricula,
+      matricula_serpro: row.matricula_serpro,
+      matricula_sigef: row.matricula_sigef,
     }));
 
     // Novo: Parcelas exclusivas do SIGEF com busca de correspondência potencial no SERPRO
@@ -353,17 +357,17 @@ export async function GET(request: NextRequest) {
               sp.matricula AS matricula_serpro,
               sp.area AS area_serpro,
               CASE
-                  WHEN (e.matricula_sigef IS NOT NULL AND e.matricula_sigef <> '' AND e.matricula_sigef = sp.matricula)
+                  WHEN (NULLIF(regexp_replace(e.matricula_sigef, '[^0-9]', '', 'g'), '') = regexp_replace(sp.matricula, '[^0-9]', '', 'g'))
                        AND (ABS(e.area_sigef - sp.area) / NULLIF(sp.area, 0) <= 0.05) THEN 'Área e Matrícula'
-                  WHEN (e.matricula_sigef IS NOT NULL AND e.matricula_sigef <> '' AND e.matricula_sigef = sp.matricula) THEN 'Matrícula'
+                  WHEN (NULLIF(regexp_replace(e.matricula_sigef, '[^0-9]', '', 'g'), '') = regexp_replace(sp.matricula, '[^0-9]', '', 'g')) THEN 'Matrícula'
                   WHEN (ABS(e.area_sigef - sp.area) / NULLIF(sp.area, 0) <= 0.05) THEN 'Área'
                   ELSE 'Município'
               END as match_type,
               ROW_NUMBER() OVER (
                   PARTITION BY e.parcela_co
                   ORDER BY (CASE
-                              WHEN e.matricula_sigef = sp.matricula AND ABS(e.area_sigef - sp.area) / NULLIF(sp.area, 0) <= 0.05 THEN 1
-                              WHEN e.matricula_sigef = sp.matricula THEN 2
+                              WHEN NULLIF(regexp_replace(e.matricula_sigef, '[^0-9]', '', 'g'), '') = regexp_replace(sp.matricula, '[^0-9]', '', 'g') AND ABS(e.area_sigef - sp.area) / NULLIF(sp.area, 0) <= 0.05 THEN 1
+                              WHEN NULLIF(regexp_replace(e.matricula_sigef, '[^0-9]', '', 'g'), '') = regexp_replace(sp.matricula, '[^0-9]', '', 'g') THEN 2
                               WHEN ABS(e.area_sigef - sp.area) / NULLIF(sp.area, 0) <= 0.05 THEN 3
                               ELSE 4 END),
                            ABS(e.area_sigef - sp.area)

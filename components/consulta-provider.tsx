@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import type { SummaryData } from "@/lib/types";
-import type { RiskLevel } from "@/lib/risk";
+import { type Conf, confSelPadrao } from "@/lib/risk";
 
 interface ConsultaState {
   cpf: string;
@@ -10,8 +10,9 @@ interface ConsultaState {
   data: SummaryData | null;
   loading: boolean;
   error: string | null;
-  riskLevel: RiskLevel;
-  setRiskLevel: (r: RiskLevel) => void;
+  // Multi-seleção de confiabilidade fundiária (alta / media / baixa)
+  confSel: Set<Conf>;
+  toggleConf: (c: Conf) => void;
   fetchSummary: (rawCpf: string) => Promise<void>;
   reset: () => void;
 }
@@ -25,7 +26,21 @@ export function ConsultaProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [riskLevel, setRiskLevel] = useState<RiskLevel>("alto");
+  const [confSel, setConfSel] = useState<Set<Conf>>(confSelPadrao);
+
+  // Liga/desliga uma confiabilidade. Mantém sempre ao menos uma selecionada.
+  const toggleConf = useCallback((c: Conf) => {
+    setConfSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(c)) {
+        if (next.size === 1) return prev; // não deixa desmarcar a última
+        next.delete(c);
+      } else {
+        next.add(c);
+      }
+      return next;
+    });
+  }, []);
 
   const fetchSummary = useCallback(async (rawCpf: string) => {
     const digits = rawCpf.replace(/\D/g, "");
@@ -34,7 +49,7 @@ export function ConsultaProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     setData(null);
-    setRiskLevel("alto");
+    setConfSel(confSelPadrao());
 
     try {
       const response = await fetch(`/api/summary?cpf=${digits}`);
@@ -57,7 +72,7 @@ export function ConsultaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ConsultaContext.Provider value={{ cpf, setCpf, data, loading, error, riskLevel, setRiskLevel, fetchSummary, reset }}>
+    <ConsultaContext.Provider value={{ cpf, setCpf, data, loading, error, confSel, toggleConf, fetchSummary, reset }}>
       {children}
     </ConsultaContext.Provider>
   );

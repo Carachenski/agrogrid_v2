@@ -1,5 +1,5 @@
 import type { SummaryData } from "@/lib/types";
-import type { RiskLevel } from "@/lib/risk";
+import { type Conf, classificaConf, confMenosConfiavel } from "@/lib/risk";
 import { scoreSocioambiental, contarAlertasSocio, SOCIO_TOTAL_CAMADAS } from "@/lib/socioambiental";
 
 // ---------------------------------------------------------------------------
@@ -54,15 +54,24 @@ export interface ScoreAgro {
 
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 
-// --- Pilar 1: Documental (dados reais, conforme o nível de risco) ---
-// baixo  = só parcelas OK          | medio = OK + Atenção | alto = OK + Atenção + Potenciais
-export function calcDocumental(data: SummaryData, risk: RiskLevel): Pilar {
-  const validOK = data.valid_details.filter((d) => d.atencao === "OK");
-  const validAtencao = data.valid_details.filter((d) => d.atencao !== "OK");
+// --- Pilar 1: Documental (dados reais, conforme as confiabilidades selecionadas) ---
+// Considera apenas as parcelas cujas confiabilidades estão em `sel`:
+//   alta = OK | media = Atenção + potenciais "Área e Matrícula" | baixa = demais potenciais
+export function calcDocumental(data: SummaryData, sel: Set<Conf>): Pilar {
+  const validOK = sel.has("alta") ? data.valid_details.filter((d) => d.atencao === "OK") : [];
+  const validAtencao = sel.has("media") ? data.valid_details.filter((d) => d.atencao !== "OK") : [];
+  // Potenciais divididos pela confiabilidade real (mesma regra da tabela)
+  const potMedia = sel.has("media")
+    ? data.non_valid_geo.filter((d) => classificaConf(d.match_type) === "media")
+    : [];
+  const potBaixa = sel.has("baixa")
+    ? data.non_valid_geo.filter((d) => classificaConf(d.match_type) === "baixa")
+    : [];
+  const potenciais = [...potMedia, ...potBaixa];
 
   const okArea = sum(validOK.map((d) => d.area_sigef));
-  const atencaoArea = risk === "baixo" ? 0 : sum(validAtencao.map((d) => d.area_sigef));
-  const potencialArea = risk === "alto" ? sum(data.non_valid_geo.map((d) => d.area_sigef)) : 0;
+  const atencaoArea = sum(validAtencao.map((d) => d.area_sigef));
+  const potencialArea = sum(potenciais.map((d) => d.area_sigef));
   const totalGeo = okArea + atencaoArea + potencialArea;
 
   const aderencia =
@@ -81,16 +90,13 @@ export function calcDocumental(data: SummaryData, risk: RiskLevel): Pilar {
     score = carTotal > 0 ? 40 * carReg : 0; // sem georreferenciamento válido = alto risco
   }
 
-  const nAtencao = risk === "baixo" ? 0 : validAtencao.length;
-  const nPotencial = risk === "alto" ? data.non_valid_geo.length : 0;
-
   return {
     score: Math.round(score),
     peso: PESOS.documental,
     detalhes: [
       { label: "Parcelas validadas (OK)", valor: `${validOK.length}` },
-      { label: "Parcelas com atenção (>5% dif.)", valor: `${nAtencao}` },
-      { label: "Correspondências potenciais", valor: `${nPotencial}` },
+      { label: "Parcelas com atenção (>5% dif.)", valor: `${validAtencao.length}` },
+      { label: "Correspondências potenciais", valor: `${potenciais.length}` },
       { label: "Índice de aderência", valor: pct(aderencia) },
       { label: "CAR ativo/pendente", valor: pct(carReg) },
     ],
@@ -126,10 +132,11 @@ export function calcProducao(prod: ProducaoResumo | null): Pilar {
   };
 }
 
-// --- Pilar 3: Socioambiental (Panorama Socioambiental do nível de risco) ---
-export function calcSocioambiental(risk: RiskLevel): Pilar {
-  const alertas = contarAlertasSocio(risk);
-  const score = scoreSocioambiental(risk);
+// --- Pilar 3: Socioambiental (Panorama Socioambiental da seleção) ---
+export function calcSocioambiental(sel: Set<Conf>): Pilar {
+  const conf = confMenosConfiavel(sel);
+  const alertas = contarAlertasSocio(conf);
+  const score = scoreSocioambiental(conf);
   return {
     score,
     peso: PESOS.socioambiental,
@@ -148,10 +155,10 @@ export function classificar(total: number): { label: string; cor: string } {
   return { label: "Crítico", cor: "#ef4444" };
 }
 
-export function calcScoreAgro(data: SummaryData, prod: ProducaoResumo | null, risk: RiskLevel): ScoreAgro {
-  const documental = calcDocumental(data, risk);
+export function calcScoreAgro(data: SummaryData, prod: ProducaoResumo | null, sel: Set<Conf>): ScoreAgro {
+  const documental = calcDocumental(data, sel);
   const producao = calcProducao(prod);
-  const socioambiental = calcSocioambiental(risk);
+  const socioambiental = calcSocioambiental(sel);
   const total = Math.round(
     documental.score * PESOS.documental +
       producao.score * PESOS.producao +

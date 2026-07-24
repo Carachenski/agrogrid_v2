@@ -19,6 +19,9 @@ node_modules/
 # Gerado pelo Next.js (alterna entre dev/build) - nao versionar
 next-env.d.ts
 
+# Cache incremental do TypeScript - nao versionar
+tsconfig.tsbuildinfo
+
 # Dados de origem (shapefile com CPF/CNPJ reais) - manter apenas local
 parcelas/
 

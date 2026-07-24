@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Database, ArrowLeft, Search, Loader2, FileText, CheckCircle, AlertCircle, MapPin, PieChart as PieChartIcon, Download, Trees, MapPinned, ScrollText, Landmark, ShieldCheck, ShieldAlert, ShieldX, ChevronDown, Maximize2 } from "lucide-react";
+import { Database, ArrowLeft, Search, Loader2, FileText, ClipboardCheck, MapPin, PieChart as PieChartIcon, Download, Trees, MapPinned, ScrollText, Landmark, ChevronDown, Maximize2, Copy, Check, Info, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import jsPDF from "jspdf";
@@ -14,7 +16,9 @@ import * as htmlToImage from "html-to-image";
 import { StepNav } from "@/components/step-nav";
 import { useConsulta } from "@/components/consulta-provider";
 import type { SummaryData } from "@/lib/types";
-import { type RiskLevel, getConsideredParcelas } from "@/lib/risk";
+import { getParcelasByConf, classificaConf } from "@/lib/risk";
+import { ConfiabilidadeFiltro } from "@/components/confiabilidade-filtro";
+import { CHART_TOOLTIP_STYLE } from "@/lib/chart";
 
 // Paleta padrão MapBiomas por classe de uso do solo
 const SOIL_COLORS = {
@@ -50,52 +54,41 @@ function formatCpfCnpj(value: string) {
     .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
 }
 
-const RISK_LEVELS: {
-  id: RiskLevel;
-  label: string;
-  desc: string;
-  icon: typeof ShieldCheck;
-  // classes aplicadas quando o nível está ativo / inativo
-  active: string;
-  iconColor: string;
-}[] = [
-  {
-    id: "baixo",
-    label: "Baixo Risco",
-    desc: "Somente parcelas OK da aderência documental",
-    icon: ShieldCheck,
-    active: "border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/40",
-    iconColor: "text-emerald-500",
-  },
-  {
-    id: "medio",
-    label: "Médio Risco",
-    desc: "Todas as parcelas da aderência documental",
-    icon: ShieldAlert,
-    active: "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500/40",
-    iconColor: "text-amber-500",
-  },
-  {
-    id: "alto",
-    label: "Alto Risco",
-    desc: "Aderência + correspondências potenciais",
-    icon: ShieldX,
-    active: "border-red-500 bg-red-500/10 ring-1 ring-red-500/40",
-    iconColor: "text-red-500",
-  },
-];
 
-// Contagem de parcelas por nível (para exibir nos botões)
-function countByRisk(data: SummaryData, risk: RiskLevel): number {
-  return getConsideredParcelas(data, risk).size;
+// Confiabilidade fundiária a partir do status (aderência) ou vínculo (correspondência)
+// OK = Alta | Atenção e "Área e Matrícula" = Média | demais = Baixa
+function confFundiaria(tag: string | null | undefined): { label: string; cls: string } {
+  const c = classificaConf(tag);
+  if (c === "alta") return { label: "Alta", cls: "bg-emerald-500/20 text-emerald-600" };
+  if (c === "media") return { label: "Média", cls: "bg-amber-500/20 text-amber-600" };
+  return { label: "Baixa", cls: "bg-red-500/20 text-red-500" };
+}
+
+// Padroniza o nome do município: remove acentos, aplica Title Case e mantém
+// conectivos em minúsculo. Ex.: "FOZ DO JORDÃO" e "Foz do Jordao" -> "Foz do Jordao".
+const MUNICIPIO_MINUSCULAS = new Set(["de", "do", "da", "dos", "das", "e"]);
+function formatMunicipio(nome: string | null | undefined): string {
+  if (!nome) return "";
+  return nome
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w, i) =>
+      i > 0 && MUNICIPIO_MINUSCULAS.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)
+    )
+    .join(" ");
 }
 
 export default function SummaryPage() {
   // Estado da consulta vem do context (persiste entre as telas)
-  const { cpf, setCpf, data, loading, error, riskLevel, setRiskLevel, fetchSummary } = useConsulta();
+  const { cpf, setCpf, data, loading, error, confSel, fetchSummary } = useConsulta();
   const [exporting, setExporting] = useState(false);
   const [showAderencia, setShowAderencia] = useState(false);
-  const [showCorrespondencia, setShowCorrespondencia] = useState(false);
+  // Parcela aberta no diálogo de cópia (null = fechado)
+  const [parcelaDialog, setParcelaDialog] = useState<string | null>(null);
+  const [parcelaCopiada, setParcelaCopiada] = useState(false);
   const [showMapaLista, setShowMapaLista] = useState(false);
   const [mapaFiltro, setMapaFiltro] = useState("");
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -138,11 +131,8 @@ export default function SummaryPage() {
         }
         parcelLayersRef.current = {};
 
-        // Parcelas visíveis conforme o nível de risco selecionado
-        const considered = getConsideredParcelas(data, riskLevel);
-        const visibleFeatures = data.map_features.filter(
-          (f) => f.geometry && considered.has(f.parcela_co)
-        );
+        // O mapa mostra sempre todas as parcelas (independente do nível de risco)
+        const visibleFeatures = data.map_features.filter((f) => f.geometry);
         const center = visibleFeatures[0] ?? data.map_features[0];
 
         const map = L.map(mapContainerRef.current).setView([center.lat, center.lng], 10);
@@ -182,7 +172,7 @@ export default function SummaryPage() {
           )
           .addTo(map);
 
-        // Desenha os limites (polígonos) das parcelas do nível de risco
+        // Desenha os limites (polígonos) de todas as parcelas
         const features = visibleFeatures
           .map(f => ({
             type: "Feature",
@@ -230,7 +220,7 @@ export default function SummaryPage() {
 
       loadMap();
     }
-  }, [data, riskLevel]);
+  }, [data]);
 
   // Recalcula o tamanho do mapa ao expandir/recolher a lista lateral
   useEffect(() => {
@@ -244,9 +234,8 @@ export default function SummaryPage() {
     e?.preventDefault();
     if (!cpf.trim()) return;
     // Reseta o estado de visualização da tela e dispara a consulta no context
-    // (o riskLevel é resetado para "alto" dentro do fetchSummary do context)
+    // (a seleção de confiabilidade é resetada para todas dentro do fetchSummary do context)
     setShowAderencia(false);
-    setShowCorrespondencia(false);
     setShowMapaLista(false);
     setMapaFiltro("");
     fetchSummary(cpf);
@@ -269,11 +258,9 @@ export default function SummaryPage() {
   const handleExportPDF = async () => {
     if (!contentRef.current || !data) return;
 
-    // Expande as tabelas recolhidas para saírem completas no PDF, restaurando depois
+    // Expande a tabela recolhida para sair completa no PDF, restaurando depois
     const prevShowAderencia = showAderencia;
-    const prevShowCorrespondencia = showCorrespondencia;
     setShowAderencia(true);
-    setShowCorrespondencia(true);
 
     setExporting(true);
     try {
@@ -332,18 +319,54 @@ export default function SummaryPage() {
       alert("Houve um erro ao gerar o download automático. Tente novamente.");
     } finally {
       setExporting(false);
-      // Restaura o estado de recolhimento das tabelas
+      // Restaura o estado de recolhimento da tabela
       setShowAderencia(prevShowAderencia);
-      setShowCorrespondencia(prevShowCorrespondencia);
     }
   };
 
-  // Tabelas mostram sempre todas as linhas (sem filtros de coluna)
-  const filteredValidDetails = data?.valid_details ?? [];
-  const filteredNonValidGeo = data?.non_valid_geo ?? [];
+  // Tabela única de Aderência Documental: validadas (SIGEF x SERPRO) +
+  // correspondências potenciais, ordenadas por confiabilidade (Alta > Média > Baixa).
+  const ORDEM_CONF: Record<string, number> = { Alta: 0, Média: 1, Baixa: 2 };
+  type AderenciaRow = {
+    parcela_co: string;
+    ccir_serpro: string;
+    ccir_sigef: string;
+    matricula_serpro: string;
+    matricula_sigef: string;
+    municipio: string;
+    area_sigef: number;
+    area_serpro: number;
+    conf: ReturnType<typeof confFundiaria>;
+  };
+  const aderenciaRows: AderenciaRow[] = data
+    ? [
+        ...data.valid_details.map((d) => ({
+          parcela_co: d.parcela_co,
+          ccir_serpro: d.ccir_serpro,
+          ccir_sigef: d.ccir_sigef,
+          matricula_serpro: d.matricula_serpro,
+          matricula_sigef: d.matricula_sigef,
+          municipio: d.municipio,
+          area_sigef: d.area_sigef,
+          area_serpro: d.area_serpro,
+          conf: confFundiaria(d.atencao),
+        })),
+        ...data.non_valid_geo.map((d) => ({
+          parcela_co: d.parcela_co,
+          ccir_serpro: d.ccir_serpro,
+          ccir_sigef: d.ccir_sigef,
+          matricula_serpro: d.matricula_serpro,
+          matricula_sigef: d.matricula_sigef,
+          municipio: d.municipio,
+          area_sigef: d.area_sigef,
+          area_serpro: d.area_serpro,
+          conf: confFundiaria(d.match_type),
+        })),
+      ].sort((a, b) => ORDEM_CONF[a.conf.label] - ORDEM_CONF[b.conf.label])
+    : [];
 
   // Parcelas consideradas conforme o nível de risco selecionado
-  const consideredParcelas = data ? getConsideredParcelas(data, riskLevel) : new Set<string>();
+  const consideredParcelas = data ? getParcelasByConf(data, confSel) : new Set<string>();
 
   // Análise Patrimonial usa apenas as parcelas do nível de risco
   const filteredLandUse = data?.land_use_details.filter(item => consideredParcelas.has(item.parcela_co)) || [];
@@ -390,11 +413,8 @@ export default function SummaryPage() {
   const ccirTotalArea = data?.ccir_details?.[0]?.total_area || 0;
   const cibBaseArea = data?.cib_details?.[0]?.total_area || 0;
 
-  // Valores do CCIR reaproveitados na tabela "Distribuição Geral"
+  // Detenção do titular (CCIR) reaproveitada na tabela "Distribuição Geral"
   const ccirDetencaoArea = data?.ccir_details?.find(d => d.label === "Detenção do Titular")?.total_area ?? 0;
-  const ccirMatriculaCount = data?.ccir_details?.find(d => d.label === "Matrícula")?.count ?? 0;
-  // Matrículas do GEO (SIGEF): parcelas com registro_m preenchido
-  const geoMatriculaCount = data?.geo_details?.find(d => d.label === "Matrículas")?.count ?? 0;
 
   // Info por parcela (município/área) para a lista lateral navegável do mapa
   const mapParcelInfo: Record<string, { municipio: string; uf: string; area: number }> = {};
@@ -417,7 +437,6 @@ export default function SummaryPage() {
   const mapGrupos: { label: string; parcelas: MapaParcela[]; area: number }[] = data
     ? (Object.values(
         data.map_features
-          .filter((f) => consideredParcelas.has(f.parcela_co))
           .reduce((acc: Record<string, any>, f) => {
           const info = mapParcelInfo[f.parcela_co];
           const raw = info?.municipio || "Sem município";
@@ -678,18 +697,35 @@ export default function SummaryPage() {
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      <TableHead className="text-center py-4 w-[24%]">Origem dos Dados</TableHead>
-                      <TableHead className="text-center py-4 w-[13%]">Quantidade</TableHead>
-                      <TableHead className="text-center py-4 w-[23%]">Area Total (ha)</TableHead>
-                      <TableHead className="text-center py-4 w-[25%]">Detenção do Titular (ha)</TableHead>
-                      <TableHead className="text-center py-4 w-[15%]">Matrículas</TableHead>
+                    <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
+                      <TableHead className="text-center py-3 w-[28%]">Base Cadastral</TableHead>
+                      <TableHead className="text-center py-3 w-[16%]">Registros</TableHead>
+                      <TableHead className="text-center py-3 w-[28%]">Área Total (ha)</TableHead>
+                      <TableHead className="text-center py-3 w-[28%]">
+                        <span className="inline-flex items-center justify-center gap-1.5">
+                          Detenção do Titular (ha)
+                          <UITooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label="O que é Detenção do Titular"
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                <Info className="h-3.5 w-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs text-center">
+                              Área proporcional à fração de posse do titular; disponível apenas no CCIR
+                              (que tem o percentual).
+                            </TooltipContent>
+                          </UITooltip>
+                        </span>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.summary.map((row) => {
                       const isCcir = row.table === "serpro_prop";
-                      const isGeo = row.table === "sigef_prop";
                       return (
                         <TableRow key={row.table} className="hover:bg-muted/20 transition-colors">
                           <TableCell className="text-center py-4">
@@ -708,15 +744,6 @@ export default function SummaryPage() {
                               <span className="text-muted-foreground">-</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-center py-4">
-                            {isCcir ? (
-                              <span className="text-base font-medium">{ccirMatriculaCount}</span>
-                            ) : isGeo ? (
-                              <span className="text-base font-medium">{geoMatriculaCount}</span>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
                         </TableRow>
                       );
                     })}
@@ -731,10 +758,8 @@ export default function SummaryPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-primary-foreground font-bold">
-                      M
-                    </div>
-                    Distribuição por Município
+                    <MapPinned className="h-5 w-5 text-primary" />
+                    Distribuição por Município (CCIR)
                   </CardTitle>
                   <CardDescription>
                     Resumo de área total proporcional por localização geográfica.
@@ -743,11 +768,11 @@ export default function SummaryPage() {
                 <CardContent>
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/30">
-                        <TableHead className="py-4 w-[40%]">Município - UF</TableHead>
-                        <TableHead className="text-center py-4 w-[15%]">Qtd</TableHead>
-                        <TableHead className="text-right py-4 w-[30%]">Area Titular (ha)</TableHead>
-                        <TableHead className="text-right py-4 w-[15%]">% Area</TableHead>
+                      <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
+                        <TableHead className="py-3 w-[40%]">Município - UF</TableHead>
+                        <TableHead className="text-center py-3 w-[15%]">Qtd</TableHead>
+                        <TableHead className="text-right py-3 w-[30%]">Área Titular (ha)</TableHead>
+                        <TableHead className="text-right py-3 w-[15%]">% Área</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -776,10 +801,8 @@ export default function SummaryPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-primary-foreground font-bold">
-                      T
-                    </div>
-                    Classificação por Tamanho
+                    <Ruler className="h-5 w-5 text-primary" />
+                    Classificação por Tamanho (CCIR)
                   </CardTitle>
                   <CardDescription>
                     Distribuição das propriedades por faixas de área titular.
@@ -788,10 +811,10 @@ export default function SummaryPage() {
                 <CardContent>
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/30">
-                        <TableHead className="py-4 w-[60%]">Faixa de Área</TableHead>
-                        <TableHead className="text-center py-4 w-[20%]">Qtd</TableHead>
-                        <TableHead className="text-right py-4 w-[20%]">% Area</TableHead>
+                      <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
+                        <TableHead className="py-3 w-[60%]">Faixa de Área</TableHead>
+                        <TableHead className="text-center py-3 w-[20%]">Qtd</TableHead>
+                        <TableHead className="text-right py-3 w-[20%]">% Área</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -815,7 +838,7 @@ export default function SummaryPage() {
                 </CardContent>
               </Card>
 
-              {/* Documentary Adherence Detailing */}
+              {/* Aderência Documental (validadas + correspondências potenciais, por confiabilidade) */}
               <Card className="md:col-span-2">
                 <CardHeader
                   role="button"
@@ -832,15 +855,15 @@ export default function SummaryPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <CardTitle className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5 text-primary" />
-                        Parcelas com Aderência Documental
+                        <ClipboardCheck className="h-5 w-5 text-primary" />
+                        Aderência Documental
                       </CardTitle>
                       <CardDescription className="mt-1.5">
-                        Comparação entre parcela certificada e CCIR para validação de área e titularidade.
+                        Parcelas SIGEF cruzadas com o SERPRO, classificadas por confiabilidade fundiária.
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
-                      <span className="hidden sm:inline">{filteredValidDetails.length} parcela(s)</span>
+                      <span className="hidden sm:inline">{aderenciaRows.length} parcela(s)</span>
                       <ChevronDown className={cn("h-5 w-5 transition-transform", showAderencia && "rotate-180")} />
                     </div>
                   </div>
@@ -851,55 +874,59 @@ export default function SummaryPage() {
                     <TableHeader>
                       <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
                         <TableHead className="py-2 px-2 h-9">Parcela</TableHead>
-                        <TableHead className="py-2 px-2 h-9">CCIR</TableHead>
-                        <TableHead className="py-2 px-2 h-9">Matrícula</TableHead>
+                        <TableHead className="py-2 px-2 h-9">CCIR SERPRO</TableHead>
+                        <TableHead className="py-2 px-2 h-9">CCIR SIGEF</TableHead>
+                        <TableHead className="py-2 px-2 h-9">Matr. SERPRO</TableHead>
+                        <TableHead className="py-2 px-2 h-9">Matr. SIGEF</TableHead>
                         <TableHead className="py-2 px-2 h-9">Município</TableHead>
                         <TableHead className="text-right py-2 px-2 h-9">Área SIGEF</TableHead>
                         <TableHead className="text-right py-2 px-2 h-9">Área SERPRO</TableHead>
-                        <TableHead className="text-right py-2 px-2 h-9">Dif. (%)</TableHead>
-                        <TableHead className="text-center py-2 px-2 h-9">Status</TableHead>
+                        <TableHead className="text-center py-2 px-2 h-9">Conf. Fundiária</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredValidDetails.length > 0 ? (
+                      {aderenciaRows.length > 0 ? (
                         <>
-                          {filteredValidDetails.map((item, idx) => (
-                            <TableRow key={`${item.parcela_co}-${item.ccir}-${idx}`} className="hover:bg-muted/20 transition-colors text-xs">
-                              <TableCell className="py-3 px-2 font-mono">{item.parcela_co}</TableCell>
-                              <TableCell className="py-3 px-2">{item.ccir}</TableCell>
-                              <TableCell className="py-3 px-2">{item.matricula || "-"}</TableCell>
-                              <TableCell className="py-3 px-2">{item.municipio}</TableCell>
+                          {aderenciaRows.map((item, idx) => (
+                            <TableRow
+                              key={`${item.parcela_co}-${idx}`}
+                              className="hover:bg-muted/20 transition-colors text-xs"
+                            >
+                              <TableCell className="py-3 px-2 font-mono">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setParcelaCopiada(false);
+                                    setParcelaDialog(item.parcela_co);
+                                  }}
+                                  title="Clique para ver e copiar o código completo"
+                                  className={cn(
+                                    "block text-left text-xs hover:text-primary hover:underline cursor-pointer",
+                                    !exporting && "max-w-[70px] truncate"
+                                  )}
+                                >
+                                  {item.parcela_co}
+                                </button>
+                              </TableCell>
+                              <TableCell className="py-3 px-2 font-mono">{item.ccir_serpro || "-"}</TableCell>
+                              <TableCell className="py-3 px-2 font-mono">{item.ccir_sigef || "-"}</TableCell>
+                              <TableCell className="py-3 px-2">{item.matricula_serpro || "-"}</TableCell>
+                              <TableCell className="py-3 px-2">{item.matricula_sigef || "-"}</TableCell>
+                              <TableCell className="py-3 px-2">{formatMunicipio(item.municipio)}</TableCell>
                               <TableCell className="text-right py-3 px-2 font-mono">{formatArea(item.area_sigef)}</TableCell>
-                              <TableCell className="text-right py-3 px-2 font-mono">{formatArea(item.area_serpro)}</TableCell>
-                              <TableCell className="text-right py-3 px-2 font-mono">{item.diferenca.toFixed(1)}%</TableCell>
+                              <TableCell className="text-right py-3 px-2 font-mono">{item.area_serpro > 0 ? formatArea(item.area_serpro) : "-"}</TableCell>
                               <TableCell className="text-center py-3 px-2">
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                  item.atencao === "OK" 
-                                    ? "bg-emerald-500/20 text-emerald-600" 
-                                    : "bg-destructive/20 text-destructive"
-                                }`}>
-                                  {item.atencao}
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${item.conf.cls}`}>
+                                  {item.conf.label}
                                 </span>
                               </TableCell>
                             </TableRow>
                           ))}
-                          <TableRow className="bg-muted/40 font-bold border-t-2 border-border text-xs uppercase">
-                            <TableCell colSpan={4} className="py-4 px-2">TOTAL VALIDADOS</TableCell>
-                            <TableCell className="text-right py-4 px-2 font-mono">
-                              {formatArea(filteredValidDetails.reduce((acc, curr) => acc + curr.area_sigef, 0))}
-                            </TableCell>
-                            <TableCell className="text-right py-4 px-2 font-mono">
-                              {formatArea(filteredValidDetails.reduce((acc, curr) => acc + curr.area_serpro, 0))}
-                            </TableCell>
-                            <TableCell colSpan={2} className="py-4 px-2 text-center text-xs text-muted-foreground font-normal lowercase">
-                              {filteredValidDetails.length} parcela(s)
-                            </TableCell>
-                          </TableRow>
                         </>
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={8} className="py-8 text-center text-muted-foreground text-sm font-medium">
-                            {data.valid_details.length > 0 ? "Nenhum resultado para os filtros selecionados." : "Nenhuma parcela com aderência documental encontrada para este CPF."}
+                          <TableCell colSpan={9} className="py-8 text-center text-muted-foreground text-sm font-medium">
+                            Nenhuma parcela com aderência documental encontrada para este CPF.
                           </TableCell>
                         </TableRow>
                       )}
@@ -910,150 +937,10 @@ export default function SummaryPage() {
               </Card>
             </div>
 
-            {/* Exclusive GEO Section with Potential Matches */}
-            <Card>
-              <CardHeader
-                role="button"
-                tabIndex={0}
-                onClick={() => setShowCorrespondencia((v) => !v)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setShowCorrespondencia((v) => !v);
-                  }
-                }}
-                className="cursor-pointer select-none"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5 text-primary" />
-                      Correspondências Potenciais
-                    </CardTitle>
-                    <CardDescription className="text-muted-foreground mt-1.5">
-                      Parcelas sem validação estrita. Busca correspondecias entre parcela cerificada e CCIR
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 text-xs text-muted-foreground">
-                    <span className="hidden sm:inline">{filteredNonValidGeo.length} parcela(s)</span>
-                    <ChevronDown className={cn("h-5 w-5 transition-transform", showCorrespondencia && "rotate-180")} />
-                  </div>
-                </div>
-              </CardHeader>
-              {showCorrespondencia && (
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
-                      <TableHead className="py-2 px-1 h-9">Parcela</TableHead>
-                      <TableHead className="py-2 px-1 h-9">CCIR (SGF)</TableHead>
-                      <TableHead className="py-2 px-1 h-9">CCIR (SRP)</TableHead>
-                      <TableHead className="py-2 px-1 h-9">Matr. (SGF)</TableHead>
-                      <TableHead className="py-2 px-1 h-9">Matr. (SRP)</TableHead>
-                      <TableHead className="text-right py-2 px-1 h-9">Área (SGF)</TableHead>
-                      <TableHead className="text-right py-2 px-1 h-9">Área (SRP)</TableHead>
-                      <TableHead className="text-center py-2 px-1 h-9">Vínculo</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredNonValidGeo.length > 0 ? (
-                      <>
-                        {filteredNonValidGeo.map((item) => (
-                          <TableRow key={item.parcela_co} className="hover:bg-muted/20 transition-colors text-xs">
-                            <TableCell className="py-3 px-1 font-mono">{item.parcela_co}</TableCell>
-                            <TableCell className="py-3 px-1 font-mono">{item.ccir_sigef || "-"}</TableCell>
-                            <TableCell className="py-3 px-1 font-mono">{item.ccir_serpro || "-"}</TableCell>
-                            <TableCell className="py-3 px-1">{item.matricula_sigef || "-"}</TableCell>
-                            <TableCell className="py-3 px-1">{item.matricula_serpro || "-"}</TableCell>
-                            <TableCell className="text-right py-3 px-1 font-mono">{formatArea(item.area_sigef)} ha</TableCell>
-                            <TableCell className="text-right py-3 px-1 font-mono">
-                              {item.area_serpro > 0 ? `${formatArea(item.area_serpro)} ha` : "-"}
-                            </TableCell>
-                            <TableCell className="text-center py-3 px-1">
-                              {item.match_type ? (
-                                item.match_type === 'SEM VINCULO' ? (
-                                  <span className="px-2 py-1 rounded bg-red-500/20 text-red-400 font-bold text-xs uppercase border border-red-500/30">
-                                    {item.match_type}
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-600 font-bold text-xs uppercase border border-emerald-500/30">
-                                    {item.match_type}
-                                  </span>
-                                )
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="bg-muted/40 font-bold border-t-2 border-border text-xs">
-                          <TableCell colSpan={5} className="py-4 px-1 uppercase tracking-wider">TOTAIS</TableCell>
-                          <TableCell className="text-right py-4 px-1 font-mono">
-                            {formatArea(filteredNonValidGeo.reduce((acc, curr) => acc + curr.area_sigef, 0))} ha
-                          </TableCell>
-                          <TableCell className="text-right py-4 px-1 font-mono">
-                            {formatArea(filteredNonValidGeo.reduce((acc, curr) => acc + curr.area_serpro, 0))} ha
-                          </TableCell>
-                          <TableCell className="py-4 px-1 text-center text-xs text-muted-foreground font-normal lowercase">
-                            {filteredNonValidGeo.length} parcela(s)
-                          </TableCell>
-                        </TableRow>
-                      </>
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={8} className="py-8 text-center text-muted-foreground text-sm font-medium">
-                          {data.non_valid_geo.length > 0 ? "Nenhum resultado para os filtros selecionados." : "Nenhuma correspondencia encontrada"}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-              )}
-            </Card>
-
-            {/* Nível de Risco + Análise Patrimonial agrupados (espaçamento menor p/ caberem juntos) */}
+            {/* Confiabilidade Fundiária + Análise Patrimonial agrupados (espaçamento menor p/ caberem juntos) */}
             <div className="space-y-6">
-            {/* Filtro de Nível de Risco */}
-            <Card>
-              <CardHeader className="py-4 text-center">
-                <CardTitle className="flex items-center justify-center gap-2 text-lg font-bold">
-                  <ShieldCheck className="h-5 w-5 text-primary" />
-                  Nível de Risco Fundiário
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pb-4">
-                <div className="grid gap-2.5 sm:grid-cols-3">
-                  {RISK_LEVELS.map((r) => {
-                    const Icon = r.icon;
-                    const isActive = riskLevel === r.id;
-                    const count = data ? countByRisk(data, r.id) : 0;
-                    return (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => setRiskLevel(r.id)}
-                        aria-pressed={isActive}
-                        className={cn(
-                          "flex items-center gap-3 rounded-xl border px-5 py-4 text-left transition-colors",
-                          isActive
-                            ? r.active
-                            : "border-border bg-background/40 hover:border-foreground/20 hover:bg-secondary/40"
-                        )}
-                      >
-                        <Icon className={cn("h-7 w-7 shrink-0", isActive ? r.iconColor : "text-muted-foreground")} />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-base font-semibold text-foreground">{r.label}</div>
-                          <div className="text-xs leading-tight text-muted-foreground">
-                            {count} parcela{count !== 1 ? "s" : ""}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+            {/* Filtro de Confiabilidade Fundiária (componente compartilhado) */}
+            <ConfiabilidadeFiltro />
 
             {/* Patrimonial Analysis Section */}
             {landUseSummary.total > 0 && (
@@ -1086,7 +973,7 @@ export default function SummaryPage() {
                           </Pie>
                           <Tooltip
                             formatter={(value: number) => [`${formatArea(value)} ha`, "Área"]}
-                            contentStyle={{ backgroundColor: "#1f2937", border: "none", borderRadius: "8px", color: "#fff" }}
+                            contentStyle={CHART_TOOLTIP_STYLE}
                           />
                         </PieChart>
                       </ResponsiveContainer>
@@ -1217,6 +1104,43 @@ export default function SummaryPage() {
           </div>
         </div>
       </footer>
+
+      {/* Diálogo com o código completo da parcela + botão de copiar */}
+      <Dialog open={parcelaDialog !== null} onOpenChange={(o) => !o && setParcelaDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Código da parcela</DialogTitle>
+            <DialogDescription>Código completo da parcela SIGEF.</DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 break-all rounded-md bg-muted px-3 py-2 font-mono text-sm">
+              {parcelaDialog}
+            </code>
+            <Button
+              variant="outline"
+              size="icon"
+              className="shrink-0"
+              onClick={async () => {
+                if (!parcelaDialog) return;
+                try {
+                  await navigator.clipboard.writeText(parcelaDialog);
+                  setParcelaCopiada(true);
+                  setTimeout(() => setParcelaCopiada(false), 1500);
+                } catch {
+                  /* clipboard indisponível */
+                }
+              }}
+              title="Copiar código"
+            >
+              {parcelaCopiada ? (
+                <Check className="h-4 w-4 text-emerald-500" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

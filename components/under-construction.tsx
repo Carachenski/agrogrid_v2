@@ -19,7 +19,7 @@ export function UnderConstruction({ href }: UnderConstructionProps) {
       <StepNav />
 
       <section className="mx-auto w-full max-w-6xl px-6 py-10">
-        {/* Cabeçalho padrão (nome + nível de risco / parcelas / hectares) */}
+        {/* Cabeçalho padrão (nome + confiabilidade fundiária / parcelas / hectares) */}
         <ConsultaHeader title={step.label} />
 
         {/* Placeholder "em construção" */}

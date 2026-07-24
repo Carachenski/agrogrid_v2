@@ -42,13 +42,15 @@ export interface SummaryData {
   }[];
   valid_details: {
     parcela_co: string;
-    ccir: string;
+    ccir_sigef: string;
+    ccir_serpro: string;
     area_sigef: number;
     area_serpro: number;
     diferenca: number;
     atencao: string;
     municipio: string;
-    matricula: string;
+    matricula_serpro: string;
+    matricula_sigef: string;
   }[];
   non_valid_geo: {
     parcela_co: string;

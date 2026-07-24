@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { StepNav } from "@/components/step-nav";
 import { ConsultaHeader } from "@/components/consulta-header";
 import { useConsulta } from "@/components/consulta-provider";
-import { getConsideredParcelas } from "@/lib/risk";
+import { getParcelasByConf } from "@/lib/risk";
+import { ConfiabilidadeFiltro } from "@/components/confiabilidade-filtro";
+import { CHART_TOOLTIP_STYLE } from "@/lib/chart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Sprout, TrendingUp, Wallet, Coins, LineChart as LineChartIcon } from "lucide-react";
@@ -79,7 +81,7 @@ const ordemCultura = (c: string) => {
 };
 
 export default function ProducaoPage() {
-  const { data, riskLevel } = useConsulta();
+  const { data, confSel } = useConsulta();
   const cpf = data?.cpf;
 
   const [prod, setProd] = useState<ProducaoData | null>(null);
@@ -91,8 +93,8 @@ export default function ProducaoPage() {
       setProd(null);
       return;
     }
-    // Parcelas consideradas conforme o nível de risco fundiário selecionado
-    const parcelas = Array.from(getConsideredParcelas(data, riskLevel));
+    // Parcelas consideradas conforme as confiabilidades selecionadas
+    const parcelas = Array.from(getParcelasByConf(data, confSel));
 
     let ativo = true;
     setLoading(true);
@@ -113,7 +115,7 @@ export default function ProducaoPage() {
     return () => {
       ativo = false;
     };
-  }, [data, cpf, riskLevel]);
+  }, [data, cpf, confSel]);
 
   const temDados = prod && prod.linhas.length > 0;
 
@@ -123,6 +125,8 @@ export default function ProducaoPage() {
 
       <section className="mx-auto w-full max-w-6xl px-6 py-10">
         <ConsultaHeader title="Quadro de Produção" />
+
+        <ConfiabilidadeFiltro className="mb-8" />
 
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -206,7 +210,7 @@ export default function ProducaoPage() {
                       />
                       <Tooltip
                         formatter={(v: number) => [fmtBRLc(v), "Resultado"]}
-                        contentStyle={{ backgroundColor: "#1f2937", border: "none", borderRadius: "8px", color: "#fff" }}
+                        contentStyle={CHART_TOOLTIP_STYLE}
                         cursor={{ fill: "rgba(255,255,255,0.05)" }}
                       />
                       <Bar dataKey="resultado" name="Resultado" radius={[4, 4, 0, 0]}>
@@ -220,7 +224,7 @@ export default function ProducaoPage() {
 
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/30">
+                    <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
                       <TableHead className="text-center py-3 w-1/3">Safra</TableHead>
                       <TableHead className="text-center py-3 w-1/3">Área (ha)</TableHead>
                       <TableHead className="text-center py-3 w-1/3">Resultado (Margem Líquida)</TableHead>

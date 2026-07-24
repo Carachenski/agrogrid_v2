@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Gauge as GaugeIcon, FileCheck2, Sprout, Leaf, Users, ChevronDown } from "lucide-react";
 import { calcScoreAgro, type ProducaoResumo, type Pilar } from "@/lib/score";
-import { getConsideredParcelas } from "@/lib/risk";
+import { getParcelasByConf } from "@/lib/risk";
+import { ConfiabilidadeFiltro } from "@/components/confiabilidade-filtro";
 
 function GaugeRing({ value, color }: { value: number; color: string }) {
   const r = 82;
@@ -109,7 +110,7 @@ function mascaraCpfCnpj(v: string) {
 }
 
 export default function ScorePage() {
-  const { data, riskLevel } = useConsulta();
+  const { data, confSel } = useConsulta();
   const cpf = data?.cpf;
 
   const [prod, setProd] = useState<ProducaoResumo | null>(null);
@@ -122,8 +123,8 @@ export default function ScorePage() {
       setProd(null);
       return;
     }
-    // Produção limitada às parcelas do nível de risco fundiário selecionado
-    const parcelas = Array.from(getConsideredParcelas(data, riskLevel));
+    // Produção limitada às parcelas das confiabilidades selecionadas
+    const parcelas = Array.from(getParcelasByConf(data, confSel));
 
     let ativo = true;
     setLoading(true);
@@ -142,7 +143,7 @@ export default function ScorePage() {
     return () => {
       ativo = false;
     };
-  }, [data, cpf, riskLevel]);
+  }, [data, cpf, confSel]);
 
   // CPF/CNPJ relacionados (via CCIR no SERPRO e via CAR no detentores_car).
   // Independe do nível de risco: é uma análise de partes relacionadas do titular.
@@ -164,8 +165,8 @@ export default function ScorePage() {
   }, [cpf]);
 
   const score = useMemo(
-    () => (data ? calcScoreAgro(data, prod, riskLevel) : null),
-    [data, prod, riskLevel]
+    () => (data ? calcScoreAgro(data, prod, confSel) : null),
+    [data, prod, confSel]
   );
 
   return (
@@ -174,6 +175,8 @@ export default function ScorePage() {
 
       <section className="mx-auto w-full max-w-6xl px-6 py-10">
         <ConsultaHeader title="Score Agro" />
+
+        <ConfiabilidadeFiltro className="mb-8" />
 
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -233,7 +236,7 @@ export default function ScorePage() {
               {showRegra && (
               <CardContent className="space-y-2 text-sm text-muted-foreground">
                 <p className="text-foreground">
-                  O Score é recalculado conforme o <b>Nível de Risco Fundiário</b> escolhido no Resumo —
+                  O Score é recalculado conforme a <b>Confiabilidade Fundiária</b> escolhida no Resumo —
                   os três pilares consideram as parcelas/alertas daquele nível.
                 </p>
                 <p>
@@ -247,7 +250,7 @@ export default function ScorePage() {
                 </p>
                 <p>
                   <b className="text-foreground">Socioambiental (20%)</b> — proporção de camadas sem alerta no
-                  Panorama Socioambiental do nível de risco.
+                  Panorama Socioambiental do nível selecionado.
                 </p>
                 <p className="pt-1 text-xs">
                   Score Agro = Documental×0,35 + Produção×0,45 + Socioambiental×0,20.
@@ -279,13 +282,17 @@ export default function ScorePage() {
                 ) : (
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/30 text-xs uppercase tracking-tight">
+                      <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
                         <TableHead className="text-center py-3">CPF / CNPJ</TableHead>
                         <TableHead className="text-center py-3">Nome</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {relacionados.map((r) => (
+                      {[...relacionados]
+                        .sort((a, b) =>
+                          (a.nome || "").localeCompare(b.nome || "", "pt-BR", { sensitivity: "base" })
+                        )
+                        .map((r) => (
                         <TableRow key={r.cpf_cnpj} className="hover:bg-muted/20 transition-colors text-sm">
                           <TableCell className="text-center py-3 font-mono">
                             {mascaraCpfCnpj(r.cpf_cnpj)}

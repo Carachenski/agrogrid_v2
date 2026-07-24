@@ -2,12 +2,12 @@
 
 import { ActiveConsulta } from "@/components/active-consulta";
 import { useConsulta } from "@/components/consulta-provider";
-import { getRiskStats, type RiskLevel } from "@/lib/risk";
+import { getConfStats, CONF_NIVEIS, type Conf } from "@/lib/risk";
 
-const RISK_LABEL: Record<RiskLevel, string> = {
-  baixo: "Baixo",
-  medio: "Médio",
-  alto: "Alto",
+const CONF_LABEL: Record<Conf, string> = {
+  alta: "Alta",
+  media: "Média",
+  baixa: "Baixa",
 };
 
 function formatArea(val: number) {
@@ -20,8 +20,9 @@ function formatArea(val: number) {
 // Cabeçalho padrão das telas do fluxo: nome do titular + título +
 // resumo do nível de risco escolhido (parcelas / hectares).
 export function ConsultaHeader({ title }: { title: string }) {
-  const { data, riskLevel } = useConsulta();
-  const stats = data ? getRiskStats(data, riskLevel) : null;
+  const { data, confSel } = useConsulta();
+  const stats = data ? getConfStats(data, confSel) : null;
+  const confLabels = CONF_NIVEIS.filter((c) => confSel.has(c)).map((c) => CONF_LABEL[c]).join(", ");
 
   return (
     <>
@@ -31,8 +32,8 @@ export function ConsultaHeader({ title }: { title: string }) {
         <h2 className="text-2xl font-bold text-foreground">{title}</h2>
         {stats ? (
           <p className="mt-1 text-sm text-muted-foreground">
-            Nível de Risco Fundiário:{" "}
-            <span className="font-semibold text-foreground">{RISK_LABEL[riskLevel]}</span>
+            Confiabilidade Fundiária:{" "}
+            <span className="font-semibold text-foreground">{confLabels}</span>
             {" · "}
             <span className="font-semibold text-foreground">{stats.parcelas}</span>{" "}
             parcela{stats.parcelas !== 1 ? "s" : ""}
