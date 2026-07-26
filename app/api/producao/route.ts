@@ -18,6 +18,7 @@ type BaseRow = {
   custo_ha: string | null;
   receita_bruta: string | null;
   custo_total: string | null;
+  custo_arrenda_total: string | null;
   resultado: string | null;
 };
 
@@ -47,7 +48,8 @@ export async function POST(request: NextRequest) {
                 AVG(rentabilidade) AS rentabilidade,
                 AVG(preco)         AS preco,
                 AVG(produtividade) AS produtividade,
-                AVG(custo)         AS custo
+                AVG(custo)         AS custo,
+                AVG(COALESCE(custo_arrenda, custo)) AS custo_arrenda
          FROM rentabilidade
          GROUP BY cultura, regiao, safra
        )
@@ -60,13 +62,15 @@ export async function POST(request: NextRequest) {
          r.custo AS custo_ha,
          (h.area * r.preco * r.produtividade) AS receita_bruta,
          (h.area * r.custo)                   AS custo_total,
+         (h.area * r.custo_arrenda)           AS custo_arrenda_total,
          (h.area * r.rentabilidade)           AS resultado
        FROM historico_safra h
        LEFT JOIN rent r
          ON r.cultura = h.cultura
         AND r.regiao  = h.nome_rg_ag
         AND r.safra   = h.safra
-       WHERE h.cpf_cnpj = $1${whereParcelas}`,
+       WHERE h.cpf_cnpj = $1${whereParcelas}
+         AND h.cultura NOT IN ('pastagem', 'irrigacao')`,
       params
     );
 
@@ -79,6 +83,7 @@ export async function POST(request: NextRequest) {
       custo_ha: r.custo_ha != null ? parseFloat(r.custo_ha) : null,
       receita_bruta: r.receita_bruta != null ? parseFloat(r.receita_bruta) : 0,
       custo_total: r.custo_total != null ? parseFloat(r.custo_total) : 0,
+      custo_arrenda_total: r.custo_arrenda_total != null ? parseFloat(r.custo_arrenda_total) : 0,
       resultado: r.resultado != null ? parseFloat(r.resultado) : 0,
     }));
 
@@ -99,6 +104,7 @@ export async function POST(request: NextRequest) {
           area_custo: 0,
           receita_bruta: 0,
           custo_total: 0,
+          custo_arrenda_total: 0,
           resultado: 0,
         };
         mapCS.set(key, acc);
@@ -106,6 +112,7 @@ export async function POST(request: NextRequest) {
       acc.area += r.area;
       acc.receita_bruta += r.receita_bruta;
       acc.custo_total += r.custo_total;
+      acc.custo_arrenda_total += r.custo_arrenda_total;
       acc.resultado += r.resultado;
       if (r.produtividade != null) {
         acc.area_prod += r.area;
@@ -127,6 +134,7 @@ export async function POST(request: NextRequest) {
         preco: a.area_preco > 0 ? a.preco_x_area / a.area_preco : null,
         receita_bruta: a.receita_bruta,
         custo_total: a.custo_total,
+        custo_arrenda_total: a.custo_arrenda_total,
         resultado: a.resultado,
       }))
       .sort((x, y) => (y.safra.localeCompare(x.safra) || x.cultura.localeCompare(y.cultura)));
@@ -136,12 +144,13 @@ export async function POST(request: NextRequest) {
     for (const r of rows) {
       let acc = mapS.get(r.safra);
       if (!acc) {
-        acc = { safra: r.safra, area: 0, receita_bruta: 0, custo_total: 0, resultado: 0 };
+        acc = { safra: r.safra, area: 0, receita_bruta: 0, custo_total: 0, custo_arrenda_total: 0, resultado: 0 };
         mapS.set(r.safra, acc);
       }
       acc.area += r.area;
       acc.receita_bruta += r.receita_bruta;
       acc.custo_total += r.custo_total;
+      acc.custo_arrenda_total += r.custo_arrenda_total;
       acc.resultado += r.resultado;
     }
     const por_safra = Array.from(mapS.values()).sort((a, b) => a.safra.localeCompare(b.safra));
@@ -152,10 +161,11 @@ export async function POST(request: NextRequest) {
         t.area += r.area;
         t.receita_bruta += r.receita_bruta;
         t.custo_total += r.custo_total;
+        t.custo_arrenda_total += r.custo_arrenda_total;
         t.resultado += r.resultado;
         return t;
       },
-      { area: 0, receita_bruta: 0, custo_total: 0, resultado: 0 }
+      { area: 0, receita_bruta: 0, custo_total: 0, custo_arrenda_total: 0, resultado: 0 }
     );
 
     const safras = por_safra.map((s) => s.safra);

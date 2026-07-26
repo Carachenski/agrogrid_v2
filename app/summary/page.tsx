@@ -697,13 +697,13 @@ export default function SummaryPage() {
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
-                      <TableHead className="text-center py-3 w-[28%]">Base Cadastral</TableHead>
+                    <TableRow className="bg-muted/30 text-xs tracking-tight">
+                      <TableHead className="text-center py-3 w-[28%]">Base cadastral</TableHead>
                       <TableHead className="text-center py-3 w-[16%]">Registros</TableHead>
-                      <TableHead className="text-center py-3 w-[28%]">Área Total (ha)</TableHead>
+                      <TableHead className="text-center py-3 w-[28%]">Área total (ha)</TableHead>
                       <TableHead className="text-center py-3 w-[28%]">
                         <span className="inline-flex items-center justify-center gap-1.5">
-                          Detenção do Titular (ha)
+                          Detenção do titular (ha)
                           <UITooltip>
                             <TooltipTrigger asChild>
                               <button
@@ -768,11 +768,11 @@ export default function SummaryPage() {
                 <CardContent>
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
+                      <TableRow className="bg-muted/30 text-xs tracking-tight">
                         <TableHead className="py-3 w-[40%]">Município - UF</TableHead>
                         <TableHead className="text-center py-3 w-[15%]">Qtd</TableHead>
-                        <TableHead className="text-right py-3 w-[30%]">Área Titular (ha)</TableHead>
-                        <TableHead className="text-right py-3 w-[15%]">% Área</TableHead>
+                        <TableHead className="text-right py-3 w-[30%]">Área titular (ha)</TableHead>
+                        <TableHead className="text-right py-3 w-[15%]">% área</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -811,10 +811,10 @@ export default function SummaryPage() {
                 <CardContent>
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
-                        <TableHead className="py-3 w-[60%]">Faixa de Área</TableHead>
+                      <TableRow className="bg-muted/30 text-xs tracking-tight">
+                        <TableHead className="py-3 w-[60%]">Faixa de área</TableHead>
                         <TableHead className="text-center py-3 w-[20%]">Qtd</TableHead>
-                        <TableHead className="text-right py-3 w-[20%]">% Área</TableHead>
+                        <TableHead className="text-right py-3 w-[20%]">% área</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -872,7 +872,7 @@ export default function SummaryPage() {
                 <CardContent>
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
+                      <TableRow className="bg-muted/30 text-xs tracking-tight">
                         <TableHead className="py-2 px-2 h-9">Parcela</TableHead>
                         <TableHead className="py-2 px-2 h-9">CCIR SERPRO</TableHead>
                         <TableHead className="py-2 px-2 h-9">CCIR SIGEF</TableHead>
@@ -881,7 +881,7 @@ export default function SummaryPage() {
                         <TableHead className="py-2 px-2 h-9">Município</TableHead>
                         <TableHead className="text-right py-2 px-2 h-9">Área SIGEF</TableHead>
                         <TableHead className="text-right py-2 px-2 h-9">Área SERPRO</TableHead>
-                        <TableHead className="text-center py-2 px-2 h-9">Conf. Fundiária</TableHead>
+                        <TableHead className="text-center py-2 px-2 h-9">Conf. fundiária</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

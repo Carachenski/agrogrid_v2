@@ -237,12 +237,12 @@ export default function SocioambientalPage() {
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
+                    <TableRow className="bg-muted/30 text-xs tracking-tight">
                       <TableHead className="text-center py-2 px-2 h-9">Parcela</TableHead>
                       <TableHead className="text-center py-2 px-2 h-9">Matrícula</TableHead>
-                      <TableHead className="text-center py-2 px-2 h-9">Área Total (ha)</TableHead>
+                      <TableHead className="text-center py-2 px-2 h-9">Área total (ha)</TableHead>
                       <TableHead className="text-center py-2 px-2 h-9">Município</TableHead>
-                      <TableHead className="text-center py-2 px-2 h-9">% Área Sobreposta</TableHead>
+                      <TableHead className="text-center py-2 px-2 h-9">% área sobreposta</TableHead>
                       <TableHead className="text-center py-2 px-2 h-9">Sobreposições</TableHead>
                     </TableRow>
                   </TableHeader>

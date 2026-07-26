@@ -236,21 +236,21 @@ export default function ScorePage() {
               {showRegra && (
               <CardContent className="space-y-2 text-sm text-muted-foreground">
                 <p className="text-foreground">
-                  O Score é recalculado conforme a <b>Confiabilidade Fundiária</b> escolhida no Resumo —
-                  os três pilares consideram as parcelas/alertas daquele nível.
+                  O Score é recalculado conforme as <b>confiabilidades selecionadas</b> no filtro —
+                  os três pilares consideram apenas as parcelas e alertas dessa seleção.
                 </p>
                 <p>
-                  <b className="text-foreground">Documental (35%)</b> — aderência fundiária das parcelas do
-                  nível (OK = 1,0 · Atenção = 0,6 · Correspondência potencial = 0,3), ponderadas por área,
-                  mais a regularidade do CAR.
+                  <b className="text-foreground">Documental (35%)</b> — aderência fundiária das parcelas
+                  selecionadas, ponderada por área conforme a confiabilidade (Alta = 1,0 · Média = 0,6 ·
+                  Baixa = 0,3), combinada com a regularidade do CAR — <b>70% aderência + 30% CAR</b>.
                 </p>
                 <p>
                   <b className="text-foreground">Produção (45%)</b> — capacidade de pagamento: margem líquida
-                  por hectare (100% em R$ 3.500/ha) e consistência de safras positivas.
+                  por hectare (100% em R$ 3.500/ha, peso 60%) e consistência de safras positivas (peso 40%).
                 </p>
                 <p>
                   <b className="text-foreground">Socioambiental (20%)</b> — proporção de camadas sem alerta no
-                  Panorama Socioambiental do nível selecionado.
+                  Panorama Socioambiental, conforme a confiabilidade selecionada.
                 </p>
                 <p className="pt-1 text-xs">
                   Score Agro = Documental×0,35 + Produção×0,45 + Socioambiental×0,20.
@@ -282,7 +282,7 @@ export default function ScorePage() {
                 ) : (
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
+                      <TableRow className="bg-muted/30 text-xs tracking-tight">
                         <TableHead className="text-center py-3">CPF / CNPJ</TableHead>
                         <TableHead className="text-center py-3">Nome</TableHead>
                       </TableRow>

@@ -7,9 +7,12 @@ import { useConsulta } from "@/components/consulta-provider";
 import { getParcelasByConf } from "@/lib/risk";
 import { ConfiabilidadeFiltro } from "@/components/confiabilidade-filtro";
 import { CHART_TOOLTIP_STYLE } from "@/lib/chart";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Sprout, TrendingUp, Wallet, Coins, LineChart as LineChartIcon } from "lucide-react";
+import { Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Sprout, TrendingUp, Wallet, Coins, LineChart as LineChartIcon, Info } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -29,6 +32,7 @@ interface Linha {
   preco: number | null;
   receita_bruta: number;
   custo_total: number;
+  custo_arrenda_total: number;
   resultado: number;
 }
 
@@ -37,8 +41,8 @@ interface ProducaoData {
   safras: string[];
   culturas: string[];
   linhas: Linha[];
-  por_safra: { safra: string; area: number; receita_bruta: number; custo_total: number; resultado: number }[];
-  totais: { area: number; receita_bruta: number; custo_total: number; resultado: number };
+  por_safra: { safra: string; area: number; receita_bruta: number; custo_total: number; custo_arrenda_total: number; resultado: number }[];
+  totais: { area: number; receita_bruta: number; custo_total: number; custo_arrenda_total: number; resultado: number };
 }
 
 const fmtArea = (v: number) =>
@@ -87,6 +91,8 @@ export default function ProducaoPage() {
   const [prod, setProd] = useState<ProducaoData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Considerar arrendamento: usa o custo_arrenda como custo de produção
+  const [arrendamento, setArrendamento] = useState(false);
 
   useEffect(() => {
     if (!data || !cpf) {
@@ -118,6 +124,17 @@ export default function ProducaoPage() {
   }, [data, cpf, confSel]);
 
   const temDados = prod && prod.linhas.length > 0;
+
+  // Resultado (rentabilidade) ajustado pelo arrendamento — cai (custo_arrenda − custo base).
+  // Mantém KPIs, gráfico e tabela de fluxo coerentes com o Quadro de Produção.
+  const adjRes = (resultado: number, custo_total: number, custo_arrenda_total: number) =>
+    arrendamento ? resultado - (custo_arrenda_total - custo_total) : resultado;
+  const porSafraAdj = prod
+    ? prod.por_safra.map((s) => ({ ...s, resultado: adjRes(s.resultado, s.custo_total, s.custo_arrenda_total) }))
+    : [];
+  const totalResultado = prod
+    ? adjRes(prod.totais.resultado, prod.totais.custo_total, prod.totais.custo_arrenda_total)
+    : 0;
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
@@ -165,20 +182,20 @@ export default function ProducaoPage() {
               <KpiCard
                 icon={<Coins className="h-5 w-5" />}
                 label="Rentabilidade Total"
-                value={fmtBRL(prod!.totais.resultado)}
+                value={fmtBRL(totalResultado)}
                 sub={`Acumulado em ${n} safras (${periodo})`}
-                highlight={prod!.totais.resultado >= 0 ? "pos" : "neg"}
+                highlight={totalResultado >= 0 ? "pos" : "neg"}
               />
               <KpiCard
                 icon={<TrendingUp className="h-5 w-5" />}
                 label="Rentabilidade Média / Safra"
-                value={fmtBRL(n ? prod!.totais.resultado / n : 0)}
+                value={fmtBRL(n ? totalResultado / n : 0)}
                 sub={`Média de ${n} safras`}
               />
               <KpiCard
                 icon={<Wallet className="h-5 w-5" />}
                 label="Margem Líquida / ha"
-                value={fmtBRLc(prod!.totais.area ? prod!.totais.resultado / prod!.totais.area : 0)}
+                value={fmtBRLc(prod!.totais.area ? totalResultado / prod!.totais.area : 0)}
                 sub="Média do período"
               />
             </div>
@@ -190,16 +207,16 @@ export default function ProducaoPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <LineChartIcon className="h-5 w-5 text-primary" />
-                  Fluxo de Caixa por Safra
+                  Rentabilidade por Safra
                 </CardTitle>
                 <CardDescription>
-                  Resultado de margem líquida estimada por safra
+                  Rentabilidade (margem líquida) estimada por safra
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="h-[280px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={prod!.por_safra} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                    <BarChart data={porSafraAdj} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} vertical={false} />
                       <XAxis dataKey="safra" tick={{ fontSize: 12 }} stroke="currentColor" className="text-muted-foreground" />
                       <YAxis
@@ -209,12 +226,12 @@ export default function ProducaoPage() {
                         tickFormatter={(v) => new Intl.NumberFormat("pt-BR", { notation: "compact" }).format(v as number)}
                       />
                       <Tooltip
-                        formatter={(v: number) => [fmtBRLc(v), "Resultado"]}
+                        formatter={(v: number) => [fmtBRLc(v), "Rentabilidade"]}
                         contentStyle={CHART_TOOLTIP_STYLE}
                         cursor={{ fill: "rgba(255,255,255,0.05)" }}
                       />
                       <Bar dataKey="resultado" name="Resultado" radius={[4, 4, 0, 0]}>
-                        {prod!.por_safra.map((s) => (
+                        {porSafraAdj.map((s) => (
                           <Cell key={s.safra} fill={s.resultado >= 0 ? "#10b981" : "#ef4444"} />
                         ))}
                       </Bar>
@@ -224,14 +241,14 @@ export default function ProducaoPage() {
 
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/30 text-xs uppercase tracking-tighter">
+                    <TableRow className="bg-muted/30 text-xs tracking-tight">
                       <TableHead className="text-center py-3 w-1/3">Safra</TableHead>
                       <TableHead className="text-center py-3 w-1/3">Área (ha)</TableHead>
-                      <TableHead className="text-center py-3 w-1/3">Resultado (Margem Líquida)</TableHead>
+                      <TableHead className="text-center py-3 w-1/3">Rentabilidade (margem líquida)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {prod!.por_safra.map((s) => (
+                    {porSafraAdj.map((s) => (
                       <TableRow key={s.safra} className="hover:bg-muted/20 transition-colors">
                         <TableCell className="text-center py-3 font-semibold">{s.safra}</TableCell>
                         <TableCell className="text-center py-3 font-mono">{fmtArea(s.area)}</TableCell>
@@ -248,22 +265,53 @@ export default function ProducaoPage() {
             {/* Quadro de produção detalhado */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sprout className="h-5 w-5 text-primary" />
-                  Quadro de Produção
-                </CardTitle>
-                <CardDescription>
-                  Produção estimada por cultura e safra, com produtividade, preço e resultado.
-                </CardDescription>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <CardTitle className="flex items-center gap-2">
+                      <Sprout className="h-5 w-5 text-primary" />
+                      Quadro de Produção
+                    </CardTitle>
+                    <CardDescription>
+                      Produção estimada por cultura e safra, com produtividade, preço, custo e rentabilidade.
+                    </CardDescription>
+                  </div>
+                  <label
+                    className={cn(
+                      "flex shrink-0 cursor-pointer select-none items-center gap-2.5 rounded-lg border px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors",
+                      arrendamento
+                        ? "border-primary/60 bg-primary/15 text-primary"
+                        : "border-border bg-secondary/50 text-foreground hover:border-foreground/20 hover:bg-secondary"
+                    )}
+                  >
+                    <Switch checked={arrendamento} onCheckedChange={setArrendamento} />
+                    Considerar arrendamento
+                  </label>
+                </div>
               </CardHeader>
               <CardContent className="space-y-8">
                 {prod!.safras.map((safra) => {
                   const linhasSafra = prod!.linhas
                     .filter((l) => l.safra === safra)
                     .sort((a, b) => ordemCultura(a.cultura) - ordemCultura(b.cultura));
+                  // Faturamento (receita) é fixo = custo base + rentabilidade base.
+                  // O custo de produção troca para o custo com arrendamento quando marcado,
+                  // e a rentabilidade cai na mesma medida (faturamento − custo de produção).
+                  const calc = (l: Linha) => {
+                    const faturamento = l.custo_total + l.resultado;
+                    const custoProd = arrendamento ? l.custo_arrenda_total : l.custo_total;
+                    return { faturamento, custoProd, rentabilidade: faturamento - custoProd };
+                  };
                   const subtotal = linhasSafra.reduce(
-                    (t, l) => ({ area: t.area + l.area, resultado: t.resultado + l.resultado }),
-                    { area: 0, resultado: 0 }
+                    (t, l) => {
+                      const c = calc(l);
+                      return {
+                        area: t.area + l.area,
+                        custoProd: t.custoProd + c.custoProd,
+                        faturamento: t.faturamento + c.faturamento,
+                        rentabilidade: t.rentabilidade + c.rentabilidade,
+                      };
+                    },
+                    { area: 0, custoProd: 0, faturamento: 0, rentabilidade: 0 }
                   );
                   return (
                     <div key={safra}>
@@ -274,33 +322,56 @@ export default function ProducaoPage() {
                       </div>
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-muted/30 text-xs uppercase tracking-tight">
-                            <TableHead className="text-center py-3 w-[28%]">Cultura</TableHead>
-                            <TableHead className="text-center py-3 w-[16%]">Área (ha)</TableHead>
-                            <TableHead className="text-center py-3 w-[16%]">Produtiv.</TableHead>
-                            <TableHead className="text-center py-3 w-[16%]">Preço</TableHead>
-                            <TableHead className="text-center py-3 w-[24%]">Resultado (Margem Líquida)</TableHead>
+                          <TableRow className="bg-muted/30 text-xs tracking-tight">
+                            <TableHead className="text-center py-3 w-[19%]">Cultura</TableHead>
+                            <TableHead className="text-center py-3 w-[12%]">Área plantada (ha)</TableHead>
+                            <TableHead className="text-center py-3 w-[13%]">
+                              <span className="inline-flex items-center justify-center gap-1">
+                                Produtividade
+                                <UITooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" aria-label="Sobre a produtividade" className="text-muted-foreground hover:text-foreground">
+                                      <Info className="h-3.5 w-3.5" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs text-center normal-case">
+                                    Produtividade média estimada para região
+                                  </TooltipContent>
+                                </UITooltip>
+                              </span>
+                            </TableHead>
+                            <TableHead className="text-center py-3 w-[12%]">Preço</TableHead>
+                            <TableHead className="text-center py-3 w-[15%]">Custo de produção</TableHead>
+                            <TableHead className="text-center py-3 w-[14%]">Faturamento</TableHead>
+                            <TableHead className="text-center py-3 w-[15%]">Rentabilidade</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {linhasSafra.map((l, i) => (
+                          {linhasSafra.map((l, i) => {
+                            const c = calc(l);
+                            return (
                             <TableRow key={`${l.cultura}-${i}`} className="hover:bg-muted/20 transition-colors text-sm">
                               <TableCell className="text-center py-3 font-semibold">{labelCultura(l.cultura)}</TableCell>
                               <TableCell className="text-center py-3 font-mono">{fmtArea(l.area)}</TableCell>
                               <TableCell className="text-center py-3 font-mono">{fmtNum(l.produtividade)}</TableCell>
                               <TableCell className="text-center py-3 font-mono">{l.preco != null ? fmtBRLc(l.preco) : "-"}</TableCell>
-                              <TableCell className={`text-center py-3 font-mono font-bold ${l.resultado >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                                {fmtBRL(l.resultado)}
+                              <TableCell className="text-center py-3 font-mono">{fmtBRL(c.custoProd)}</TableCell>
+                              <TableCell className="text-center py-3 font-mono">{fmtBRL(c.faturamento)}</TableCell>
+                              <TableCell className={`text-center py-3 font-mono font-bold ${c.rentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                                {fmtBRL(c.rentabilidade)}
                               </TableCell>
                             </TableRow>
-                          ))}
+                            );
+                          })}
                           <TableRow className="bg-muted/40 font-bold border-t-2 border-border text-sm">
                             <TableCell className="text-center py-3 uppercase">Subtotal</TableCell>
                             <TableCell className="text-center py-3 font-mono">{fmtArea(subtotal.area)}</TableCell>
                             <TableCell className="py-3" />
                             <TableCell className="py-3" />
-                            <TableCell className={`text-center py-3 font-mono ${subtotal.resultado >= 0 ? "text-emerald-600" : "text-destructive"}`}>
-                              {fmtBRL(subtotal.resultado)}
+                            <TableCell className="text-center py-3 font-mono">{fmtBRL(subtotal.custoProd)}</TableCell>
+                            <TableCell className="text-center py-3 font-mono">{fmtBRL(subtotal.faturamento)}</TableCell>
+                            <TableCell className={`text-center py-3 font-mono ${subtotal.rentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                              {fmtBRL(subtotal.rentabilidade)}
                             </TableCell>
                           </TableRow>
                         </TableBody>
@@ -310,7 +381,9 @@ export default function ProducaoPage() {
                 })}
 
                 <p className="text-xs text-muted-foreground">
-                  Resultado = área plantada × margem líquida por hectare
+                  Faturamento = custo de produção base + rentabilidade (receita estimada).
+                  {" "}Rentabilidade = faturamento − custo de produção
+                  {arrendamento ? " (com arrendamento)" : ""}.
                 </p>
               </CardContent>
             </Card>

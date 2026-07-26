@@ -16,10 +16,10 @@ export const PESOS = { documental: 0.35, producao: 0.45, socioambiental: 0.2 };
 
 // Parâmetros de calibração (documentados na explicação da regra)
 export const PARAMS = {
-  // Pesos por tier de aderência documental (SIGEF x SERPRO)
-  tierOk: 1.0, // parcela validada, diferença de área ≤ 5%
-  tierAtencao: 0.6, // validada, mas diferença de área > 5%
-  tierPotencial: 0.3, // sem vínculo estrito (só correspondência potencial)
+  // Pesos por confiabilidade fundiária da parcela (mesma classificação da tabela)
+  tierAlta: 1.0, // alta confiabilidade
+  tierMedia: 0.6, // média confiabilidade
+  tierBaixa: 0.3, // baixa confiabilidade
   docAderenciaPeso: 0.7,
   docCarPeso: 0.3,
   // Produção
@@ -55,8 +55,8 @@ export interface ScoreAgro {
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 
 // --- Pilar 1: Documental (dados reais, conforme as confiabilidades selecionadas) ---
-// Considera apenas as parcelas cujas confiabilidades estão em `sel`:
-//   alta = OK | media = Atenção + potenciais "Área e Matrícula" | baixa = demais potenciais
+// A aderência pondera cada parcela pela sua CONFIABILIDADE FUNDIÁRIA (mesma regra
+// da tabela): alta = 1,0 · média = 0,6 · baixa = 0,3.
 export function calcDocumental(data: SummaryData, sel: Set<Conf>): Pilar {
   const validOK = sel.has("alta") ? data.valid_details.filter((d) => d.atencao === "OK") : [];
   const validAtencao = sel.has("media") ? data.valid_details.filter((d) => d.atencao !== "OK") : [];
@@ -69,14 +69,15 @@ export function calcDocumental(data: SummaryData, sel: Set<Conf>): Pilar {
     : [];
   const potenciais = [...potMedia, ...potBaixa];
 
-  const okArea = sum(validOK.map((d) => d.area_sigef));
-  const atencaoArea = sum(validAtencao.map((d) => d.area_sigef));
-  const potencialArea = sum(potenciais.map((d) => d.area_sigef));
-  const totalGeo = okArea + atencaoArea + potencialArea;
+  // Áreas agrupadas por confiabilidade
+  const altaArea = sum(validOK.map((d) => d.area_sigef));
+  const mediaArea = sum([...validAtencao, ...potMedia].map((d) => d.area_sigef));
+  const baixaArea = sum(potBaixa.map((d) => d.area_sigef));
+  const totalGeo = altaArea + mediaArea + baixaArea;
 
   const aderencia =
     totalGeo > 0
-      ? (PARAMS.tierOk * okArea + PARAMS.tierAtencao * atencaoArea + PARAMS.tierPotencial * potencialArea) / totalGeo
+      ? (PARAMS.tierAlta * altaArea + PARAMS.tierMedia * mediaArea + PARAMS.tierBaixa * baixaArea) / totalGeo
       : 0;
 
   const carAtivo = sum(data.car_details.filter((c) => c.status === "Ativos/Pendentes").map((c) => c.total_area));
