@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
-import { Database, ArrowLeft, Search, Loader2, FileText, ClipboardCheck, MapPin, PieChart as PieChartIcon, Download, Trees, MapPinned, ScrollText, Landmark, ChevronDown, Maximize2, Copy, Check, Info, Ruler } from "lucide-react";
+import { ArrowLeft, Search, Loader2, FileText, ClipboardCheck, MapPin, PieChart as PieChartIcon, Download, Trees, MapPinned, ScrollText, Landmark, ChevronDown, Maximize2, Copy, Check, Info, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -48,12 +47,6 @@ const SOURCE_UNDERLINE: Record<string, string> = {
   sky: "decoration-sky-400/60 hover:decoration-sky-400",
   amber: "decoration-amber-400/60 hover:decoration-amber-400",
   violet: "decoration-violet-400/60 hover:decoration-violet-400",
-};
-const SOURCE_DOT: Record<string, string> = {
-  emerald: "bg-emerald-400",
-  sky: "bg-sky-400",
-  amber: "bg-amber-400",
-  violet: "bg-violet-400",
 };
 
 // Máscara dinâmica de CPF (000.000.000-00) / CNPJ (00.000.000/0000-00)
@@ -513,8 +506,13 @@ export default function SummaryPage() {
       {/* Navegação sequencial */}
       <StepNav />
 
-      {/* Hero / Search */}
-      <section className="relative overflow-hidden border-b border-border">
+      {/* Hero / Search — ocupa a tela cheia quando ainda não há consulta */}
+      <section
+        className={cn(
+          "relative overflow-hidden border-b border-border",
+          !data && "flex min-h-[calc(100svh-3.5rem)] items-center"
+        )}
+      >
         {/* fundo real: vídeo de fazenda em loop + foto de fallback */}
         <HeroMedia />
 
@@ -581,7 +579,10 @@ export default function SummaryPage() {
       </section>
 
       {/* Content */}
-      <section className="max-w-6xl mx-auto px-6 py-12" ref={contentRef}>
+      <section
+        className={cn("max-w-6xl mx-auto w-full px-6", (loading || error || data) && "py-12")}
+        ref={contentRef}
+      >
         {error && (
           <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-center mb-8">
             {error}
@@ -1114,40 +1115,16 @@ export default function SummaryPage() {
           </div>
         )}
 
-        {!loading && !data && !error && (
-          <div className="agro-enter mx-auto max-w-4xl text-center">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground/70">
-              O que consultamos automaticamente
-            </p>
-            <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-4">
-              {SOURCES.map((s) => (
-                <div key={s.label} className="flex flex-col items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className={cn("h-2.5 w-2.5 rounded-full", SOURCE_DOT[s.tint])} />
-                    <span className="text-base font-semibold text-foreground">{s.label}</span>
-                  </div>
-                  <div className="max-w-[9rem] text-xs leading-relaxed text-muted-foreground">{s.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {data && <ProximoPasso />}
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-card mt-12">
-        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Database className="h-4 w-4" />
-            <span>Agrogrid © 2026 - Inteligência Fundiária e Patrimonial</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link href="/socioambiental" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Socioambiental</Link>
-            <Link href="/producao" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Quadro de Produção</Link>
-            <Link href="/score" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Score</Link>
-          </div>
+      <footer className="border-t border-border bg-card">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-3 px-6 py-6 text-sm text-muted-foreground">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-agroconsult-com-retina-300x67.png" alt="Agroconsult" className="h-7 w-auto" />
+          <span className="text-muted-foreground/40">·</span>
+          <span>Agrogrid © 2026 - Inteligência Fundiária e Patrimonial</span>
         </div>
       </footer>
 
