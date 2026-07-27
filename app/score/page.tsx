@@ -264,15 +264,19 @@ export default function ScorePage() {
                 <p>
                   <b className="text-foreground">Documental (35%)</b> — aderência fundiária das parcelas
                   selecionadas, ponderada por área conforme a confiabilidade (Alta = 1,0 · Média = 0,6 ·
-                  Baixa = 0,3), combinada com a regularidade do CAR — <b>70% aderência + 30% CAR</b>.
+                  Baixa = 0,3), combinada com a <b>regularidade do CAR</b> — proporção da área com Cadastro
+                  Ambiental Rural ativo/pendente sobre a área total de CAR (cadastros cancelados reduzem a nota).
+                  Composição do pilar: <b>70% aderência + 30% CAR</b>.
                 </p>
                 <p>
-                  <b className="text-foreground">Produção (45%)</b> — capacidade de pagamento: margem líquida
-                  por hectare (100% em R$ 3.500/ha, peso 60%) e consistência de safras positivas (peso 40%).
+                  <b className="text-foreground">Produção (45%)</b> — mede a capacidade de pagamento com base na
+                  <b> área plantada e na rentabilidade acumuladas nas últimas 4 safras</b>. Pondera a rentabilidade
+                  média por hectare (peso 60%, atingindo 100% em R$ 3.500/ha) e a regularidade das safras (peso 40%,
+                  chegando a 100% com resultado positivo nos quatro anos consecutivos).
                 </p>
                 <p>
                   <b className="text-foreground">Socioambiental (20%)</b> — proporção de camadas sem alerta no
-                  Panorama Socioambiental, conforme a confiabilidade selecionada.
+                  Panorama Socioambiental.
                 </p>
                 <p className="pt-1 text-xs">
                   Score Agro = Documental×0,35 + Produção×0,45 + Socioambiental×0,20.

@@ -95,9 +95,9 @@ export function calcDocumental(data: SummaryData, sel: Set<Conf>): Pilar {
     score: Math.round(score),
     peso: PESOS.documental,
     detalhes: [
-      { label: "Parcelas validadas (OK)", valor: `${validOK.length}` },
-      { label: "Parcelas com atenção (>5% dif.)", valor: `${validAtencao.length}` },
-      { label: "Correspondências potenciais", valor: `${potenciais.length}` },
+      { label: "Alta confiabilidade", valor: `${validOK.length}` },
+      { label: "Média confiabilidade", valor: `${validAtencao.length + potMedia.length}` },
+      { label: "Baixa confiabilidade", valor: `${potBaixa.length}` },
       { label: "Índice de aderência", valor: pct(aderencia) },
       { label: "CAR ativo/pendente", valor: pct(carReg) },
     ],
