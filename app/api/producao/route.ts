@@ -87,14 +87,14 @@ export async function POST(request: NextRequest) {
       resultado: r.resultado != null ? parseFloat(r.resultado) : 0,
     }));
 
-    // "Fechar" a última safra: milho 2ª safra e algodão têm colheita tardia e
-    // ainda não têm dado na safra corrente. Quando faltam na última safra, usamos
-    // os valores da safra anterior (mesmo produtor) para completar o ano.
+    // "Fechar" a última safra: milho 2ª safra e algodão têm colheita tardia, e as
+    // culturas permanentes (café, citrus, lavoura perene) persistem no imóvel — quando
+    // faltam na safra corrente, usamos os valores da safra anterior (mesmo produtor).
     const safrasOrd = Array.from(new Set(rows.map((r) => r.safra))).sort();
     if (safrasOrd.length >= 2) {
       const ultima = safrasOrd[safrasOrd.length - 1];
       const anterior = safrasOrd[safrasOrd.length - 2];
-      for (const cult of ["milho2", "algodao"]) {
+      for (const cult of ["milho2", "algodao", "cafe", "citrus", "lavoura perene"]) {
         const faltaNaUltima = !rows.some((r) => r.safra === ultima && r.cultura === cult);
         if (faltaNaUltima) {
           rows

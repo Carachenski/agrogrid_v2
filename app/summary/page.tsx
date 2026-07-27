@@ -881,7 +881,39 @@ export default function SummaryPage() {
                         <TableHead className="py-2 px-2 h-9">Município</TableHead>
                         <TableHead className="text-right py-2 px-2 h-9">Área SIGEF</TableHead>
                         <TableHead className="text-right py-2 px-2 h-9">Área SERPRO</TableHead>
-                        <TableHead className="text-center py-2 px-2 h-9">Conf. fundiária</TableHead>
+                        <TableHead className="text-center py-2 px-2 h-9">
+                          <span className="inline-flex items-center justify-center gap-1.5">
+                            Conf. fundiária
+                            <UITooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label="O que é Confiabilidade Fundiária"
+                                  className="text-muted-foreground hover:text-foreground"
+                                >
+                                  <Info className="h-3.5 w-3.5" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <div className="space-y-1.5 text-left font-normal normal-case tracking-normal">
+                                  <p>
+                                    <span className="font-bold text-emerald-500">Alta</span> — casada pelo CCIR entre
+                                    SIGEF e SERPRO, com diferença de área ≤ 5% entre os cadastros.
+                                  </p>
+                                  <p>
+                                    <span className="font-bold text-amber-500">Média</span> — casada pelo CCIR, mas
+                                    com diferença de área &gt; 5% entre os cadastros; ou correspondência potencial
+                                    com área e matrícula iguais entre os cadastros.
+                                  </p>
+                                  <p>
+                                    <span className="font-bold text-red-500">Baixa</span> — sem correspondência forte
+                                    entre os cadastros.
+                                  </p>
+                                </div>
+                              </TooltipContent>
+                            </UITooltip>
+                          </span>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

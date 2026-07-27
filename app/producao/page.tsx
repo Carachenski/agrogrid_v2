@@ -278,17 +278,34 @@ export default function ProducaoPage() {
                       Produção estimada por cultura e safra, com produtividade, preço, custo e rentabilidade.
                     </CardDescription>
                   </div>
-                  <label
-                    className={cn(
-                      "flex shrink-0 cursor-pointer select-none items-center gap-2.5 rounded-lg border px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors",
-                      arrendamento
-                        ? "border-primary/60 bg-primary/15 text-primary"
-                        : "border-border bg-secondary/50 text-foreground hover:border-foreground/20 hover:bg-secondary"
-                    )}
-                  >
-                    <Switch checked={arrendamento} onCheckedChange={setArrendamento} />
-                    Considerar arrendamento
-                  </label>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <label
+                      className={cn(
+                        "flex cursor-pointer select-none items-center gap-2.5 rounded-lg border px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors",
+                        arrendamento
+                          ? "border-primary/60 bg-primary/15 text-primary"
+                          : "border-border bg-secondary/50 text-foreground hover:border-foreground/20 hover:bg-secondary"
+                      )}
+                    >
+                      <Switch checked={arrendamento} onCheckedChange={setArrendamento} />
+                      Considerar arrendamento
+                    </label>
+                    <UITooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="O que o arrendamento considera"
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <Info className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-center font-normal">
+                        Além do desembolso e da depreciação, considera o custo de arrendamento da terra no
+                        custo de produção.
+                      </TooltipContent>
+                    </UITooltip>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-8">
