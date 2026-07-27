@@ -18,7 +18,7 @@ import { useConsulta } from "@/components/consulta-provider";
 import type { SummaryData } from "@/lib/types";
 import { getParcelasByConf, classificaConf } from "@/lib/risk";
 import { ConfiabilidadeFiltro } from "@/components/confiabilidade-filtro";
-import { CHART_TOOLTIP_STYLE } from "@/lib/chart";
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/lib/chart";
 
 // Paleta padrão MapBiomas por classe de uso do solo
 const SOIL_COLORS = {
@@ -974,6 +974,8 @@ export default function SummaryPage() {
                           <Tooltip
                             formatter={(value: number) => [`${formatArea(value)} ha`, "Área"]}
                             contentStyle={CHART_TOOLTIP_STYLE}
+                            labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                            itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                           />
                         </PieChart>
                       </ResponsiveContainer>

@@ -109,11 +109,17 @@ function mascaraCpfCnpj(v: string) {
   return v;
 }
 
+// Produção crua da API — inclui os custos para ajustar pelo arrendamento.
+interface ProdRaw {
+  totais: { area: number; resultado: number; custo_total: number; custo_arrenda_total: number };
+  por_safra: { safra: string; resultado: number; custo_total: number; custo_arrenda_total: number }[];
+}
+
 export default function ScorePage() {
-  const { data, confSel } = useConsulta();
+  const { data, confSel, arrendamento } = useConsulta();
   const cpf = data?.cpf;
 
-  const [prod, setProd] = useState<ProducaoResumo | null>(null);
+  const [prod, setProd] = useState<ProdRaw | null>(null);
   const [loading, setLoading] = useState(false);
   const [relacionados, setRelacionados] = useState<Relacionado[] | null>(null);
   const [showRegra, setShowRegra] = useState(false);
@@ -164,9 +170,25 @@ export default function ScorePage() {
     };
   }, [cpf]);
 
+  // Produção ajustada pelo arrendamento (rentabilidade cai custo_arrenda − custo base).
+  const prodAjustado: ProducaoResumo | null = useMemo(() => {
+    if (!prod) return null;
+    const adj = (r: number, ct: number, cat: number) => (arrendamento ? r - (cat - ct) : r);
+    return {
+      totais: {
+        area: prod.totais.area,
+        resultado: adj(prod.totais.resultado, prod.totais.custo_total, prod.totais.custo_arrenda_total),
+      },
+      por_safra: prod.por_safra.map((s) => ({
+        safra: s.safra,
+        resultado: adj(s.resultado, s.custo_total, s.custo_arrenda_total),
+      })),
+    };
+  }, [prod, arrendamento]);
+
   const score = useMemo(
-    () => (data ? calcScoreAgro(data, prod, confSel) : null),
-    [data, prod, confSel]
+    () => (data ? calcScoreAgro(data, prodAjustado, confSel) : null),
+    [data, prodAjustado, confSel]
   );
 
   return (

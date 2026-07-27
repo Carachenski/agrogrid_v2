@@ -13,6 +13,9 @@ interface ConsultaState {
   // Multi-seleção de confiabilidade fundiária (alta / media / baixa)
   confSel: Set<Conf>;
   toggleConf: (c: Conf) => void;
+  // Considerar arrendamento (usa custo_arrenda) — global p/ Produção e Score
+  arrendamento: boolean;
+  setArrendamento: (v: boolean) => void;
   fetchSummary: (rawCpf: string) => Promise<void>;
   reset: () => void;
 }
@@ -27,6 +30,7 @@ export function ConsultaProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confSel, setConfSel] = useState<Set<Conf>>(confSelPadrao);
+  const [arrendamento, setArrendamento] = useState(false);
 
   // Liga/desliga uma confiabilidade. Mantém sempre ao menos uma selecionada.
   const toggleConf = useCallback((c: Conf) => {
@@ -50,6 +54,7 @@ export function ConsultaProvider({ children }: { children: ReactNode }) {
     setError(null);
     setData(null);
     setConfSel(confSelPadrao());
+    setArrendamento(false);
 
     try {
       const response = await fetch(`/api/summary?cpf=${digits}`);
@@ -72,7 +77,7 @@ export function ConsultaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <ConsultaContext.Provider value={{ cpf, setCpf, data, loading, error, confSel, toggleConf, fetchSummary, reset }}>
+    <ConsultaContext.Provider value={{ cpf, setCpf, data, loading, error, confSel, toggleConf, arrendamento, setArrendamento, fetchSummary, reset }}>
       {children}
     </ConsultaContext.Provider>
   );

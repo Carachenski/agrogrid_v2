@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         AND r.regiao  = h.nome_rg_ag
         AND r.safra   = h.safra
        WHERE h.cpf_cnpj = $1${whereParcelas}
-         AND h.cultura NOT IN ('pastagem', 'irrigacao')`,
+         AND h.cultura NOT IN ('pastagem', 'irrigacao', 'silvicultura')`,
       params
     );
 
@@ -86,6 +86,23 @@ export async function POST(request: NextRequest) {
       custo_arrenda_total: r.custo_arrenda_total != null ? parseFloat(r.custo_arrenda_total) : 0,
       resultado: r.resultado != null ? parseFloat(r.resultado) : 0,
     }));
+
+    // "Fechar" a última safra: milho 2ª safra e algodão têm colheita tardia e
+    // ainda não têm dado na safra corrente. Quando faltam na última safra, usamos
+    // os valores da safra anterior (mesmo produtor) para completar o ano.
+    const safrasOrd = Array.from(new Set(rows.map((r) => r.safra))).sort();
+    if (safrasOrd.length >= 2) {
+      const ultima = safrasOrd[safrasOrd.length - 1];
+      const anterior = safrasOrd[safrasOrd.length - 2];
+      for (const cult of ["milho2", "algodao"]) {
+        const faltaNaUltima = !rows.some((r) => r.safra === ultima && r.cultura === cult);
+        if (faltaNaUltima) {
+          rows
+            .filter((r) => r.safra === anterior && r.cultura === cult)
+            .forEach((r) => rows.push({ ...r, safra: ultima }));
+        }
+      }
+    }
 
     // --- Agregação por cultura + safra (quadro detalhado) ---
     const mapCS = new Map<string, any>();

@@ -6,7 +6,7 @@ import { ConsultaHeader } from "@/components/consulta-header";
 import { useConsulta } from "@/components/consulta-provider";
 import { getParcelasByConf } from "@/lib/risk";
 import { ConfiabilidadeFiltro } from "@/components/confiabilidade-filtro";
-import { CHART_TOOLTIP_STYLE } from "@/lib/chart";
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/lib/chart";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -85,14 +85,12 @@ const ordemCultura = (c: string) => {
 };
 
 export default function ProducaoPage() {
-  const { data, confSel } = useConsulta();
+  const { data, confSel, arrendamento, setArrendamento } = useConsulta();
   const cpf = data?.cpf;
 
   const [prod, setProd] = useState<ProducaoData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Considerar arrendamento: usa o custo_arrenda como custo de produção
-  const [arrendamento, setArrendamento] = useState(false);
 
   useEffect(() => {
     if (!data || !cpf) {
@@ -132,9 +130,6 @@ export default function ProducaoPage() {
   const porSafraAdj = prod
     ? prod.por_safra.map((s) => ({ ...s, resultado: adjRes(s.resultado, s.custo_total, s.custo_arrenda_total) }))
     : [];
-  const totalResultado = prod
-    ? adjRes(prod.totais.resultado, prod.totais.custo_total, prod.totais.custo_arrenda_total)
-    : 0;
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
@@ -167,36 +162,42 @@ export default function ProducaoPage() {
 
         {temDados && (
           <div className="space-y-8">
-            {/* KPIs consolidados (foco na margem líquida) */}
+            {/* KPIs da última safra */}
             {(() => {
-              const n = prod!.safras.length;
-              const periodo = n ? `${prod!.safras[0]}–${prod!.safras[n - 1]}` : "";
+              const ultRaw = prod!.por_safra[prod!.por_safra.length - 1];
+              const ultAdj = porSafraAdj[porSafraAdj.length - 1];
+              if (!ultRaw || !ultAdj) return null;
+              const safraLabel = `Safra ${ultRaw.safra}`;
+              const areaUlt = ultRaw.area;
+              const faturamentoUlt = ultRaw.custo_total + ultRaw.resultado; // receita (fixa)
+              const rentUlt = ultAdj.resultado; // ajustada pelo arrendamento
+              const rentHaUlt = areaUlt > 0 ? rentUlt / areaUlt : 0;
               return (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <KpiCard
                 icon={<Sprout className="h-5 w-5" />}
                 label="Área Cultivada"
-                value={`${fmtArea(prod!.totais.area)} ha`}
-                sub={`Acumulada em ${n} safras (${periodo})`}
+                value={`${fmtArea(areaUlt)} ha`}
+                sub={safraLabel}
               />
               <KpiCard
                 icon={<Coins className="h-5 w-5" />}
-                label="Rentabilidade Total"
-                value={fmtBRL(totalResultado)}
-                sub={`Acumulado em ${n} safras (${periodo})`}
-                highlight={totalResultado >= 0 ? "pos" : "neg"}
+                label="Faturamento"
+                value={fmtBRL(faturamentoUlt)}
+                sub={safraLabel}
               />
               <KpiCard
                 icon={<TrendingUp className="h-5 w-5" />}
-                label="Rentabilidade Média / Safra"
-                value={fmtBRL(n ? totalResultado / n : 0)}
-                sub={`Média de ${n} safras`}
+                label="Rentabilidade"
+                value={fmtBRL(rentUlt)}
+                sub={safraLabel}
+                highlight={rentUlt >= 0 ? "pos" : "neg"}
               />
               <KpiCard
                 icon={<Wallet className="h-5 w-5" />}
-                label="Margem Líquida / ha"
-                value={fmtBRLc(prod!.totais.area ? totalResultado / prod!.totais.area : 0)}
-                sub="Média do período"
+                label="Rentabilidade / ha"
+                value={fmtBRLc(rentHaUlt)}
+                sub={safraLabel}
               />
             </div>
               );
@@ -228,6 +229,8 @@ export default function ProducaoPage() {
                       <Tooltip
                         formatter={(v: number) => [fmtBRLc(v), "Rentabilidade"]}
                         contentStyle={CHART_TOOLTIP_STYLE}
+                        labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                        itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                         cursor={{ fill: "rgba(255,255,255,0.05)" }}
                       />
                       <Bar dataKey="resultado" name="Resultado" radius={[4, 4, 0, 0]}>
@@ -241,7 +244,7 @@ export default function ProducaoPage() {
 
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/30 text-xs tracking-tight">
+                    <TableRow className="bg-muted text-xs tracking-tight border-b-2 border-foreground/25">
                       <TableHead className="text-center py-3 w-1/3">Safra</TableHead>
                       <TableHead className="text-center py-3 w-1/3">Área (ha)</TableHead>
                       <TableHead className="text-center py-3 w-1/3">Rentabilidade (margem líquida)</TableHead>
@@ -322,10 +325,10 @@ export default function ProducaoPage() {
                       </div>
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-muted/30 text-xs tracking-tight">
-                            <TableHead className="text-center py-3 w-[19%]">Cultura</TableHead>
-                            <TableHead className="text-center py-3 w-[12%]">Área plantada (ha)</TableHead>
-                            <TableHead className="text-center py-3 w-[13%]">
+                          <TableRow className="bg-muted text-xs tracking-tight border-b-2 border-foreground/25">
+                            <TableHead className="text-center py-3 w-[16%]">Cultura</TableHead>
+                            <TableHead className="text-center py-3 w-[11%]">Área plantada (ha)</TableHead>
+                            <TableHead className="text-center py-3 w-[12%]">
                               <span className="inline-flex items-center justify-center gap-1">
                                 Produtividade
                                 <UITooltip>
@@ -340,10 +343,11 @@ export default function ProducaoPage() {
                                 </UITooltip>
                               </span>
                             </TableHead>
-                            <TableHead className="text-center py-3 w-[12%]">Preço</TableHead>
-                            <TableHead className="text-center py-3 w-[15%]">Custo de produção</TableHead>
-                            <TableHead className="text-center py-3 w-[14%]">Faturamento</TableHead>
-                            <TableHead className="text-center py-3 w-[15%]">Rentabilidade</TableHead>
+                            <TableHead className="text-center py-3 w-[11%]">Preço</TableHead>
+                            <TableHead className="text-center py-3 w-[14%]">Custo de produção</TableHead>
+                            <TableHead className="text-center py-3 w-[13%]">Faturamento</TableHead>
+                            <TableHead className="text-center py-3 w-[14%]">Rentabilidade</TableHead>
+                            <TableHead className="text-center py-3 w-[9%]">Margem (%)</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -360,11 +364,14 @@ export default function ProducaoPage() {
                               <TableCell className={`text-center py-3 font-mono font-bold ${c.rentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}`}>
                                 {fmtBRL(c.rentabilidade)}
                               </TableCell>
+                              <TableCell className={`text-center py-3 font-mono ${c.rentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                                {c.faturamento > 0 ? `${fmtNum((c.rentabilidade / c.faturamento) * 100)}%` : "-"}
+                              </TableCell>
                             </TableRow>
                             );
                           })}
-                          <TableRow className="bg-muted/40 font-bold border-t-2 border-border text-sm">
-                            <TableCell className="text-center py-3 uppercase">Subtotal</TableCell>
+                          <TableRow className="bg-muted font-bold border-t-2 border-foreground/25 text-sm">
+                            <TableCell className="text-center py-3 uppercase tracking-wide">Subtotal</TableCell>
                             <TableCell className="text-center py-3 font-mono">{fmtArea(subtotal.area)}</TableCell>
                             <TableCell className="py-3" />
                             <TableCell className="py-3" />
@@ -372,6 +379,9 @@ export default function ProducaoPage() {
                             <TableCell className="text-center py-3 font-mono">{fmtBRL(subtotal.faturamento)}</TableCell>
                             <TableCell className={`text-center py-3 font-mono ${subtotal.rentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}`}>
                               {fmtBRL(subtotal.rentabilidade)}
+                            </TableCell>
+                            <TableCell className={`text-center py-3 font-mono ${subtotal.rentabilidade >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+                              {subtotal.faturamento > 0 ? `${fmtNum((subtotal.rentabilidade / subtotal.faturamento) * 100)}%` : "-"}
                             </TableCell>
                           </TableRow>
                         </TableBody>
