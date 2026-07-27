@@ -18,6 +18,9 @@ import { useConsulta } from "@/components/consulta-provider";
 import type { SummaryData } from "@/lib/types";
 import { getParcelasByConf, classificaConf } from "@/lib/risk";
 import { ConfiabilidadeFiltro } from "@/components/confiabilidade-filtro";
+import { ProximoPasso } from "@/components/proximo-passo";
+import { TitleIcon } from "@/components/title-icon";
+import { HeroMedia } from "@/components/hero-media";
 import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/lib/chart";
 
 // Paleta padrão MapBiomas por classe de uso do solo
@@ -30,13 +33,28 @@ const SOIL_COLORS = {
   mata_app_outros: "#1f8d49", // Formação Florestal (MapBiomas)
 };
 
-// Bases fundiárias consultadas automaticamente
+// Bases fundiárias consultadas automaticamente — cada uma com um monograma
+// próprio (mais branded/original que ícones genéricos).
 const SOURCES = [
-  { label: "CAR", desc: "Cadastro Ambiental Rural", icon: Trees },
-  { label: "SIGEF", desc: "Georreferenciamento • INCRA", icon: MapPinned },
-  { label: "SERPRO", desc: "CCIR • Cadastro Rural", icon: ScrollText },
-  { label: "Receita Federal", desc: "CIB • Imóvel Rural", icon: Landmark },
+  { label: "CAR", desc: "Cadastro Ambiental Rural", icon: Trees, mono: "CAR", tint: "emerald" },
+  { label: "SIGEF", desc: "Georreferenciamento • INCRA", icon: MapPinned, mono: "SG", tint: "sky" },
+  { label: "SERPRO", desc: "CCIR • Cadastro Rural", icon: ScrollText, mono: "SP", tint: "amber" },
+  { label: "Receita Federal", desc: "CIB • Imóvel Rural", icon: Landmark, mono: "RF", tint: "violet" },
 ];
+
+// Cor de cada fonte (classes estáticas para o Tailwind não purgar)
+const SOURCE_UNDERLINE: Record<string, string> = {
+  emerald: "decoration-emerald-400/60 hover:decoration-emerald-400",
+  sky: "decoration-sky-400/60 hover:decoration-sky-400",
+  amber: "decoration-amber-400/60 hover:decoration-amber-400",
+  violet: "decoration-violet-400/60 hover:decoration-violet-400",
+};
+const SOURCE_DOT: Record<string, string> = {
+  emerald: "bg-emerald-400",
+  sky: "bg-sky-400",
+  amber: "bg-amber-400",
+  violet: "bg-violet-400",
+};
 
 // Máscara dinâmica de CPF (000.000.000-00) / CNPJ (00.000.000/0000-00)
 function formatCpfCnpj(value: string) {
@@ -496,34 +514,41 @@ export default function SummaryPage() {
       <StepNav />
 
       {/* Hero / Search */}
-      <section className="relative overflow-hidden border-b border-border bg-gradient-to-b from-card to-background">
-        {/* brilho decorativo */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center">
-          <div className="h-72 w-[46rem] max-w-full rounded-full bg-primary/10 blur-3xl" />
-        </div>
+      <section className="relative overflow-hidden border-b border-border">
+        {/* fundo real: vídeo de fazenda em loop + foto de fallback */}
+        <HeroMedia />
 
-        <div className="relative max-w-3xl mx-auto px-6 py-16 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-10">
-            Inteligência Fundiária &amp; Patrimonial
-          </div>
+        <div className="agro-stagger relative mx-auto max-w-3xl px-6 py-24 text-center md:py-32">
+          <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-[1.05] tracking-tight text-foreground sm:text-5xl md:text-6xl">
+            Uma visão completa do{" "}
+            <span className="bg-gradient-to-r from-primary to-emerald-300 bg-clip-text text-transparent">
+              patrimônio rural
+            </span>{" "}
+            do produtor
+          </h1>
 
-          <form onSubmit={handleSearch} className="mx-auto max-w-xl">
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-2 shadow-lg shadow-black/20 transition focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20">
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+            Consulte um CPF ou CNPJ e obtenha, em um único lugar, dados do CAR, SIGEF, SERPRO e Receita
+            Federal, além de análises de produção rural e score.
+          </p>
+
+          <form onSubmit={handleSearch} className="mx-auto mt-10 max-w-xl">
+            <div className="flex items-center gap-2 rounded-2xl border border-border bg-card/80 p-2.5 shadow-2xl shadow-black/40 backdrop-blur">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Digite o CPF ou CNPJ"
                   value={cpf}
                   onChange={(e) => setCpf(formatCpfCnpj(e.target.value))}
-                  className="h-11 border-0 bg-transparent pl-10 text-base shadow-none focus-visible:ring-0"
+                  className="h-14 border-0 bg-transparent pl-12 text-lg shadow-none focus-visible:outline-none focus-visible:ring-0"
                   maxLength={18}
                   inputMode="numeric"
                   autoFocus
                 />
               </div>
-              <Button type="submit" size="lg" disabled={loading || !cpf} className="h-11 shrink-0 gap-2 px-6">
+              <Button type="submit" size="lg" disabled={loading || !cpf} className="h-14 shrink-0 gap-2 rounded-xl px-7 text-base">
                 {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <>
                     <Search className="h-4 w-4" />
@@ -534,18 +559,24 @@ export default function SummaryPage() {
             </div>
           </form>
 
-          {/* chips das bases consultadas */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-            {SOURCES.map((s) => (
-              <span
-                key={s.label}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/50 px-3 py-1 text-xs text-muted-foreground"
-              >
-                <s.icon className="h-3.5 w-3.5 text-primary/70" />
-                {s.label}
+          {/* Fontes — frase editorial, cada base sublinhada na sua cor */}
+          <p className="mx-auto mt-9 max-w-lg text-sm leading-relaxed text-muted-foreground">
+            Cruzamos{" "}
+            {SOURCES.map((s, i) => (
+              <span key={s.label}>
+                <span
+                  className={cn(
+                    "text-lg font-bold text-foreground underline decoration-2 underline-offset-4 transition-colors",
+                    SOURCE_UNDERLINE[s.tint]
+                  )}
+                >
+                  {s.label}
+                </span>
+                {i < SOURCES.length - 2 ? ", " : i === SOURCES.length - 2 ? " e " : ""}
               </span>
-            ))}
-          </div>
+            ))}{" "}
+            <span className="text-muted-foreground/70">— automaticamente, em segundos.</span>
+          </p>
         </div>
       </section>
 
@@ -589,7 +620,7 @@ export default function SummaryPage() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <CardTitle className="flex items-center gap-2 text-lg">
-                        <MapPin className="h-5 w-5 text-primary" />
+                        <TitleIcon icon={MapPin} />
                         Localização das Propriedades
                       </CardTitle>
                       <CardDescription className="mt-1.5">
@@ -690,7 +721,7 @@ export default function SummaryPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
+                  <TitleIcon icon={FileText} />
                   Distribuição Geral
                 </CardTitle>
               </CardHeader>
@@ -758,7 +789,7 @@ export default function SummaryPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <MapPinned className="h-5 w-5 text-primary" />
+                    <TitleIcon icon={MapPinned} tint="azul" />
                     Distribuição por Município (CCIR)
                   </CardTitle>
                   <CardDescription>
@@ -801,7 +832,7 @@ export default function SummaryPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Ruler className="h-5 w-5 text-primary" />
+                    <TitleIcon icon={Ruler} tint="azul" />
                     Classificação por Tamanho (CCIR)
                   </CardTitle>
                   <CardDescription>
@@ -855,7 +886,7 @@ export default function SummaryPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <CardTitle className="flex items-center gap-2">
-                        <ClipboardCheck className="h-5 w-5 text-primary" />
+                        <TitleIcon icon={ClipboardCheck} tint="azul" />
                         Aderência Documental
                       </CardTitle>
                       <CardDescription className="mt-1.5">
@@ -979,25 +1010,27 @@ export default function SummaryPage() {
               <Card className="border-primary/20 bg-gradient-to-b from-primary/5 to-transparent overflow-hidden">
                 <CardHeader className="py-4">
                   <CardTitle className="flex items-center gap-2 text-lg font-bold">
-                    <PieChartIcon className="h-5 w-5 text-primary" />
+                    <TitleIcon icon={PieChartIcon} tint="violeta" />
                     Análise Patrimonial
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6 pb-5">
                   <div className="grid lg:grid-cols-2 gap-6 items-center">
                     {/* Donut com total no centro */}
-                    <div className="relative h-[210px] w-full">
+                    <div className="relative h-[230px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={soilItems}
                             cx="50%"
                             cy="50%"
-                            innerRadius={52}
-                            outerRadius={76}
-                            paddingAngle={3}
+                            innerRadius={56}
+                            outerRadius={86}
+                            paddingAngle={2.5}
+                            cornerRadius={6}
                             dataKey="value"
-                            stroke="none"
+                            stroke="var(--card)"
+                            strokeWidth={2.5}
                           >
                             {soilItems.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
@@ -1078,50 +1111,29 @@ export default function SummaryPage() {
               </Card>
             )}
             </div>
-
-            <div className="text-center export-hide-on-pdf">
-              <Button
-                onClick={handleExportPDF}
-                disabled={exporting}
-                variant="secondary"
-                size="lg"
-                className="gap-2"
-              >
-                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {exporting ? "Gerando PDF..." : "Exportar PDF"}
-              </Button>
-            </div>
           </div>
         )}
 
         {!loading && !data && !error && (
-          <div className="mx-auto max-w-3xl">
-            <div className="rounded-2xl border border-dashed border-border bg-card/30 px-6 py-14 text-center">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
-                <Search className="h-7 w-7 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">Comece por um CPF ou CNPJ</h3>
-              <p className="mx-auto mb-10 max-w-md text-sm text-muted-foreground">
-                Insira um documento no campo acima para gerar o relatório consolidado. Estas são as
-                bases consultadas automaticamente:
-              </p>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {SOURCES.map((s) => (
-                  <div
-                    key={s.label}
-                    className="flex flex-col items-center gap-2 rounded-xl border border-border bg-background/50 px-3 py-5 transition-colors hover:border-primary/30"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                      <s.icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="text-sm font-semibold text-foreground">{s.label}</div>
-                    <div className="text-xs leading-tight text-muted-foreground">{s.desc}</div>
+          <div className="agro-enter mx-auto max-w-4xl text-center">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground/70">
+              O que consultamos automaticamente
+            </p>
+            <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-4">
+              {SOURCES.map((s) => (
+                <div key={s.label} className="flex flex-col items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className={cn("h-2.5 w-2.5 rounded-full", SOURCE_DOT[s.tint])} />
+                    <span className="text-base font-semibold text-foreground">{s.label}</span>
                   </div>
-                ))}
-              </div>
+                  <div className="max-w-[9rem] text-xs leading-relaxed text-muted-foreground">{s.desc}</div>
+                </div>
+              ))}
             </div>
           </div>
         )}
+
+        {data && <ProximoPasso />}
       </section>
 
       {/* Footer */}

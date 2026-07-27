@@ -50,12 +50,11 @@ export function ConfiabilidadeFiltro({ className }: { className?: string }) {
 
   return (
     <Card className={className}>
-      <CardHeader className="py-2.5 text-center gap-0.5">
-        <CardTitle className="flex items-center justify-center gap-1.5 text-sm font-bold">
-          <ShieldCheck className="h-4 w-4 text-primary" />
+      <CardHeader className="py-3.5 text-center gap-1">
+        <CardTitle className="text-base font-bold tracking-tight text-foreground">
           Confiabilidade Fundiária
         </CardTitle>
-        <p className="text-[11px] leading-tight text-muted-foreground">
+        <p className="text-xs leading-tight text-muted-foreground">
           Selecione uma ou mais confiabilidades para filtrar as parcelas
         </p>
       </CardHeader>

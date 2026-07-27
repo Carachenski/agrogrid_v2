@@ -28,11 +28,11 @@ export function ConsultaHeader({ title }: { title: string }) {
     <>
       <ActiveConsulta />
 
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-foreground">{title}</h2>
+      <div className="agro-enter mb-10 text-center">
+        <h2 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl">{title}</h2>
         {stats ? (
-          <p className="mt-1 text-sm text-muted-foreground">
-            Confiabilidade Fundiária:{" "}
+          <p className="mx-auto mt-3 max-w-2xl text-base text-muted-foreground">
+            Confiabilidade Fundiária{" "}
             <span className="font-semibold text-foreground">{confLabels}</span>
             {" · "}
             <span className="font-semibold text-foreground">{stats.parcelas}</span>{" "}
@@ -41,8 +41,8 @@ export function ConsultaHeader({ title }: { title: string }) {
             <span className="font-semibold text-foreground">{formatArea(stats.hectares)}</span> hectares
           </p>
         ) : (
-          <p className="mt-1 text-sm text-muted-foreground">
-            Consulte um CPF/CNPJ no Resumo Patrimonial para carregar os dados.
+          <p className="mx-auto mt-3 max-w-2xl text-base text-muted-foreground">
+            Comece consultando um CPF ou CNPJ no Resumo Patrimonial.
           </p>
         )}
       </div>

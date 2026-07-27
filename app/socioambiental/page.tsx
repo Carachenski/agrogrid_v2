@@ -7,6 +7,7 @@ import { ConfiabilidadeFiltro } from "@/components/confiabilidade-filtro";
 import { useConsulta } from "@/components/consulta-provider";
 import { RISK_ALERTS } from "@/lib/socioambiental";
 import { confMenosConfiavel, getParcelasByConf } from "@/lib/risk";
+import { ProximoPasso } from "@/components/proximo-passo";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -30,7 +31,6 @@ import {
   Copy,
   Target,
   ChevronDown,
-  MapPin,
   type LucideIcon,
 } from "lucide-react";
 
@@ -189,7 +189,7 @@ export default function SocioambientalPage() {
     <main className="min-h-screen bg-background flex flex-col">
       <StepNav />
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-10 space-y-8">
+      <section className="mx-auto w-full max-w-6xl px-6 py-14 md:py-20 space-y-10">
         <ConsultaHeader title="Panorama Socioambiental" />
 
         <ConfiabilidadeFiltro />
@@ -217,10 +217,7 @@ export default function SocioambientalPage() {
             >
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-primary" />
-                    Parcelas Atingidas por Sobreposições
-                  </CardTitle>
+                  <CardTitle>Parcelas Atingidas por Sobreposições</CardTitle>
                   <CardDescription>
                     Parcelas com sobreposição às camadas socioambientais ativas.
                   </CardDescription>
@@ -315,6 +312,8 @@ export default function SocioambientalPage() {
             )}
           </Card>
         )}
+
+        <ProximoPasso />
       </section>
 
       {/* Diálogo com o código completo da parcela + botão de copiar */}

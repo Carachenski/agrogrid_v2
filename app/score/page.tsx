@@ -1,20 +1,46 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StepNav } from "@/components/step-nav";
 import { ConsultaHeader } from "@/components/consulta-header";
 import { useConsulta } from "@/components/consulta-provider";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Gauge as GaugeIcon, FileCheck2, Sprout, Leaf, Users, ChevronDown } from "lucide-react";
+import { Loader2, Gauge as GaugeIcon, FileCheck2, Sprout, Leaf, Users, ChevronDown, type LucideIcon } from "lucide-react";
 import { calcScoreAgro, type ProducaoResumo, type Pilar } from "@/lib/score";
 import { getParcelasByConf } from "@/lib/risk";
 import { ConfiabilidadeFiltro } from "@/components/confiabilidade-filtro";
+import { TitleIcon } from "@/components/title-icon";
+
+// Número que "sobe" suavemente até o valor (estilo Apple), respeitando reduced-motion.
+function useCountUp(value: number, ms = 950) {
+  const [n, setN] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setN(value); from.current = value; return;
+    }
+    const start = performance.now();
+    const a = from.current;
+    let raf = 0;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / ms);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setN(Math.round(a + (value - a) * eased));
+      if (p < 1) raf = requestAnimationFrame(tick);
+      else from.current = value;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, ms]);
+  return n;
+}
 
 function GaugeRing({ value, color }: { value: number; color: string }) {
   const r = 82;
   const c = 2 * Math.PI * r;
   const offset = c * (1 - Math.max(0, Math.min(100, value)) / 100);
+  const shown = useCountUp(value);
   return (
     <div className="relative h-56 w-56">
       <svg viewBox="0 0 200 200" className="h-full w-full -rotate-90">
@@ -33,8 +59,8 @@ function GaugeRing({ value, color }: { value: number; color: string }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-mono text-5xl font-black" style={{ color }}>
-          {value}
+        <span className="font-mono text-6xl font-black tabular-nums" style={{ color }}>
+          {shown}
         </span>
         <span className="text-xs uppercase tracking-widest text-muted-foreground">Score Agro</span>
       </div>
@@ -44,12 +70,14 @@ function GaugeRing({ value, color }: { value: number; color: string }) {
 
 function PilarCard({
   icon,
+  tint,
   titulo,
   pilar,
   cor,
   hipotetico,
 }: {
-  icon: React.ReactNode;
+  icon: LucideIcon;
+  tint: "azul" | "verde" | "ambar" | "violeta" | "rosa";
   titulo: string;
   pilar: Pilar;
   cor: string;
@@ -59,8 +87,8 @@ function PilarCard({
     <Card>
       <CardContent className="p-5">
         <div className="mb-3 flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-primary">{icon}</span>
+          <div className="flex items-center gap-3">
+            <TitleIcon icon={icon} tint={tint} />
             <div>
               <div className="font-semibold text-foreground">{titulo}</div>
               <div className="text-xs text-muted-foreground">Peso {Math.round(pilar.peso * 100)}%</div>
@@ -195,15 +223,15 @@ export default function ScorePage() {
     <main className="min-h-screen bg-background flex flex-col">
       <StepNav />
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-10">
+      <section className="mx-auto w-full max-w-6xl px-6 py-14 md:py-20">
         <ConsultaHeader title="Score Agro" />
 
         <ConfiabilidadeFiltro className="mb-8" />
 
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-            <Loader2 className="mb-4 h-8 w-8 animate-spin" />
-            <p>Calculando o Score Agro...</p>
+            <Loader2 className="mb-4 h-8 w-8 animate-spin text-primary" />
+            <p>Reunindo os dados e calculando o Score Agro…</p>
           </div>
         )}
 
@@ -224,9 +252,9 @@ export default function ScorePage() {
 
             {/* Pilares */}
             <div className="grid gap-4 md:grid-cols-3">
-              <PilarCard icon={<FileCheck2 className="h-5 w-5" />} titulo="Documental" pilar={score.documental} cor="#3b82f6" />
-              <PilarCard icon={<Sprout className="h-5 w-5" />} titulo="Produção" pilar={score.producao} cor="#10b981" />
-              <PilarCard icon={<Leaf className="h-5 w-5" />} titulo="Socioambiental" pilar={score.socioambiental} cor="#f59e0b" />
+              <PilarCard icon={FileCheck2} tint="azul" titulo="Documental" pilar={score.documental} cor="#3b82f6" />
+              <PilarCard icon={Sprout} tint="verde" titulo="Produção" pilar={score.producao} cor="#10b981" />
+              <PilarCard icon={Leaf} tint="ambar" titulo="Socioambiental" pilar={score.socioambiental} cor="#f59e0b" />
             </div>
 
             {/* Regra (recolhida por padrão) */}
@@ -245,7 +273,7 @@ export default function ScorePage() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <GaugeIcon className="h-5 w-5 text-primary" />
+                    <TitleIcon icon={GaugeIcon} tint="violeta" />
                     Como o Score é calculado
                   </CardTitle>
                   <ChevronDown
@@ -289,7 +317,7 @@ export default function ScorePage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
+                  <TitleIcon icon={Users} tint="azul" />
                   CPF/CNPJ&apos;s Relacionados
                 </CardTitle>
                 <CardDescription>

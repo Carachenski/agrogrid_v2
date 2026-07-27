@@ -45,17 +45,27 @@ export function StepNav({ actions }: { actions?: ReactNode }) {
               >
                 <span
                   className={cn(
-                    "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition-colors",
+                    "relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset transition-all duration-300 group-hover:scale-105",
                     isActive
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-gradient-to-br from-primary/35 to-primary/5 text-primary ring-primary/30 shadow-[0_0_18px_-6px] shadow-primary/60"
                       : isDone
-                      ? "bg-primary/20 text-primary"
-                      : "bg-secondary text-muted-foreground group-hover:bg-background"
+                      ? "bg-primary/15 text-primary ring-primary/20"
+                      : "bg-secondary/70 text-muted-foreground ring-border group-hover:bg-background"
                   )}
                 >
-                  {isDone ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                  {isDone ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" strokeWidth={2.1} />}
+                  {/* nº do passo como selo discreto */}
+                  {!isDone && (
+                    <span
+                      className={cn(
+                        "absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold ring-2 ring-card",
+                        isActive ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                      )}
+                    >
+                      {i + 1}
+                    </span>
+                  )}
                 </span>
-                <Icon className="h-4 w-4 shrink-0" />
                 <span className="text-sm font-medium whitespace-nowrap">{step.label}</span>
               </Link>
 

@@ -6,6 +6,8 @@ import { ConsultaHeader } from "@/components/consulta-header";
 import { useConsulta } from "@/components/consulta-provider";
 import { getParcelasByConf } from "@/lib/risk";
 import { ConfiabilidadeFiltro } from "@/components/confiabilidade-filtro";
+import { ProximoPasso } from "@/components/proximo-passo";
+import { TitleIcon } from "@/components/title-icon";
 import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/lib/chart";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -135,15 +137,15 @@ export default function ProducaoPage() {
     <main className="min-h-screen bg-background flex flex-col">
       <StepNav />
 
-      <section className="mx-auto w-full max-w-6xl px-6 py-10">
+      <section className="mx-auto w-full max-w-6xl px-6 py-14 md:py-20">
         <ConsultaHeader title="Quadro de Produção" />
 
         <ConfiabilidadeFiltro className="mb-8" />
 
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-            <Loader2 className="mb-4 h-8 w-8 animate-spin" />
-            <p>Montando o quadro de produção...</p>
+            <Loader2 className="mb-4 h-8 w-8 animate-spin text-primary" />
+            <p>Montando o quadro de produção, safra a safra…</p>
           </div>
         )}
 
@@ -155,8 +157,9 @@ export default function ProducaoPage() {
 
         {!loading && cpf && !temDados && !error && (
           <div className="rounded-2xl border border-dashed border-border py-16 text-center text-muted-foreground">
-            <Sprout className="mx-auto mb-3 h-10 w-10 opacity-30" />
-            <p className="font-medium">Nenhum histórico de produção encontrado para este CPF/CNPJ.</p>
+            <Sprout className="mx-auto mb-3 h-10 w-10 text-primary/40" />
+            <p className="font-medium text-foreground">Ainda não encontramos histórico de produção para este titular.</p>
+            <p className="mt-1 text-sm">Assim que houver safras registradas, elas aparecem aqui.</p>
           </div>
         )}
 
@@ -207,7 +210,7 @@ export default function ProducaoPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <LineChartIcon className="h-5 w-5 text-primary" />
+                  <TitleIcon icon={LineChartIcon} />
                   Rentabilidade por Safra
                 </CardTitle>
                 <CardDescription>
@@ -217,11 +220,24 @@ export default function ProducaoPage() {
               <CardContent className="space-y-6">
                 <div className="h-[280px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={porSafraAdj} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} vertical={false} />
-                      <XAxis dataKey="safra" tick={{ fontSize: 12 }} stroke="currentColor" className="text-muted-foreground" />
+                    <BarChart data={porSafraAdj} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="barPos" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#4ade80" stopOpacity={0.95} />
+                          <stop offset="100%" stopColor="#16a34a" stopOpacity={0.3} />
+                        </linearGradient>
+                        <linearGradient id="barNeg" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#fb7185" stopOpacity={0.95} />
+                          <stop offset="100%" stopColor="#e11d48" stopOpacity={0.3} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="currentColor" className="text-border" strokeOpacity={0.35} vertical={false} />
+                      <XAxis dataKey="safra" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} stroke="currentColor" className="text-muted-foreground" dy={6} />
                       <YAxis
                         tick={{ fontSize: 11 }}
+                        tickLine={false}
+                        axisLine={false}
+                        width={48}
                         stroke="currentColor"
                         className="text-muted-foreground"
                         tickFormatter={(v) => new Intl.NumberFormat("pt-BR", { notation: "compact" }).format(v as number)}
@@ -231,11 +247,11 @@ export default function ProducaoPage() {
                         contentStyle={CHART_TOOLTIP_STYLE}
                         labelStyle={CHART_TOOLTIP_LABEL_STYLE}
                         itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                        cursor={{ fill: "rgba(255,255,255,0.05)" }}
+                        cursor={{ fill: "currentColor", fillOpacity: 0.06 }}
                       />
-                      <Bar dataKey="resultado" name="Resultado" radius={[4, 4, 0, 0]}>
+                      <Bar dataKey="resultado" name="Resultado" radius={[8, 8, 2, 2]} maxBarSize={56}>
                         {porSafraAdj.map((s) => (
-                          <Cell key={s.safra} fill={s.resultado >= 0 ? "#10b981" : "#ef4444"} />
+                          <Cell key={s.safra} fill={s.resultado >= 0 ? "url(#barPos)" : "url(#barNeg)"} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -271,7 +287,7 @@ export default function ProducaoPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <CardTitle className="flex items-center gap-2">
-                      <Sprout className="h-5 w-5 text-primary" />
+                      <TitleIcon icon={Sprout} />
                       Quadro de Produção
                     </CardTitle>
                     <CardDescription>
@@ -416,6 +432,8 @@ export default function ProducaoPage() {
             </Card>
           </div>
         )}
+
+        <ProximoPasso />
       </section>
     </main>
   );
